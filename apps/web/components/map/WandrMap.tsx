@@ -3,6 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 import type { Coordinates, GeoGeometry } from "@wandr/shared";
 
+const primaryStyle = "https://tiles.openfreemap.org/styles/positron";
+const fallbackStyle = {
+  version: 8 as const,
+  sources: {
+    osm: {
+      type: "raster" as const,
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    },
+  },
+  layers: [{ id: "osm-raster", type: "raster" as const, source: "osm" }],
+};
+
+type MapState =
+  | { status: "initializing" }
+  | { status: "ready"; provider: "openfreemap" | "openstreetmap" }
+  | { status: "degraded"; provider: "openfreemap" | "openstreetmap"; message: string }
+  | { status: "failed"; message: string };
+
 type Props = {
   origin?: Coordinates | null;
   destination?: Coordinates | null;
@@ -15,9 +36,13 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
   const map = useRef<import("maplibre-gl").Map | null>(null);
   const markers = useRef<import("maplibre-gl").Marker[]>([]);
   const latest = useRef({ origin, destination, geometry, bottomPadding });
-  const [ready, setReady] = useState(false);
+  const [mapState, setMapState] = useState<MapState>({ status: "initializing" });
+  const mapStateRef = useRef<MapState>({ status: "initializing" });
   const [styleRevision, setStyleRevision] = useState(0);
-  const [error, setError] = useState(false);
+  const updateMapState = (next: MapState) => {
+    mapStateRef.current = next;
+    setMapState(next);
+  };
 
   useEffect(() => { latest.current = { origin, destination, geometry, bottomPadding }; }, [origin, destination, geometry, bottomPadding]);
 
@@ -26,6 +51,18 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
     let instance: import("maplibre-gl").Map | undefined;
     let resizeObserver: ResizeObserver | undefined;
     let onStyleLoad: (() => void) | undefined;
+    let retryTimer: number | undefined;
+    let failedTimer: number | undefined;
+    let usingFallback = false;
+    let primaryAttemptPending = false;
+    let initialRenderComplete = false;
+
+    const clearTimers = () => {
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      if (failedTimer !== undefined) window.clearTimeout(failedTimer);
+      retryTimer = undefined;
+      failedTimer = undefined;
+    };
 
     void import("maplibre-gl").then((maplibre) => {
       if (disposed || !container.current) return;
@@ -33,7 +70,7 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
         maplibre.setWorkerUrl("/maplibre-gl-worker.mjs");
         const created = new maplibre.Map({
           container: container.current,
-          style: "https://tiles.openfreemap.org/styles/positron",
+          style: primaryStyle,
           center: [125.612, 7.073],
           zoom: 12,
           attributionControl: false,
@@ -42,25 +79,86 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
         map.current = created;
         created.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
         created.addControl(new maplibre.AttributionControl({ compact: false, customAttribution: '<a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Powered by Geoapify</a>' }), "top-left");
-        created.on("error", () => { if (!created.isStyleLoaded()) setError(true); });
-        onStyleLoad = () => { if (!disposed) { setError(false); setStyleRevision((value) => value + 1); } };
-        created.on("style.load", onStyleLoad);
-        created.once("load", () => {
+        const useFallback = () => {
+          if (disposed || usingFallback) return;
+          usingFallback = true;
+          clearTimers();
+          updateMapState({ status: "initializing" });
+          created.setStyle(fallbackStyle);
+          failedTimer = window.setTimeout(() => {
+            if (!disposed && usingFallback) updateMapState({ status: "failed", message: "Map tiles are unavailable. Place search remains available." });
+          }, 12_000);
+        };
+
+        created.on("error", () => {
           if (disposed) return;
-          setError(false);
-          setReady(true);
+          if (!initialRenderComplete) {
+            // MapLibre reports recoverable sprite, glyph and source errors on the
+            // same event as fatal style errors. Give the primary style time to
+            // finish; only switch providers if its first complete frame never arrives.
+            if (!usingFallback && retryTimer === undefined) retryTimer = window.setTimeout(useFallback, 8_000);
+          } else if (mapStateRef.current.status !== "failed") {
+            const provider = usingFallback ? "openstreetmap" : "openfreemap";
+            updateMapState({ status: "degraded", provider, message: "Some map details did not load." });
+          }
         });
+        onStyleLoad = () => {
+          if (disposed) return;
+          if (primaryAttemptPending) {
+            usingFallback = false;
+            primaryAttemptPending = false;
+          }
+          setStyleRevision((value) => value + 1);
+        };
+        created.on("style.load", onStyleLoad);
+        created.on("load", () => {
+          if (disposed) return;
+          initialRenderComplete = true;
+          clearTimers();
+          updateMapState(usingFallback
+            ? { status: "degraded", provider: "openstreetmap", message: "Using backup map tiles." }
+            : { status: "ready", provider: "openfreemap" });
+        });
+        created.on("idle", () => {
+          if (disposed || !created.isStyleLoaded()) return;
+          initialRenderComplete = true;
+          clearTimers();
+          updateMapState(usingFallback
+            ? { status: "degraded", provider: "openstreetmap", message: "Using backup map tiles." }
+            : { status: "ready", provider: "openfreemap" });
+        });
+        created.on("webglcontextlost", () => {
+          if (!disposed) updateMapState({ status: "degraded", provider: usingFallback ? "openstreetmap" : "openfreemap", message: "Map display paused." });
+        });
+        created.on("webglcontextrestored", () => {
+          if (disposed) return;
+          updateMapState({ status: "initializing" });
+          created.resize();
+          created.triggerRepaint();
+        });
+        const retryPrimaryWhenOnline = () => {
+          if (disposed || !usingFallback) return;
+          clearTimers();
+          initialRenderComplete = false;
+          primaryAttemptPending = true;
+          updateMapState({ status: "initializing" });
+          created.setStyle(primaryStyle);
+          retryTimer = window.setTimeout(useFallback, 8_000);
+        };
+        window.addEventListener("online", retryPrimaryWhenOnline);
+        created.once("remove", () => window.removeEventListener("online", retryPrimaryWhenOnline));
         resizeObserver = new ResizeObserver(() => {
           requestAnimationFrame(() => {
             if (!disposed && map.current === created) created.resize();
           });
         });
         resizeObserver.observe(container.current);
-      } catch { setError(true); }
-    }).catch(() => { if (!disposed) setError(true); });
+      } catch { updateMapState({ status: "failed", message: "Map could not be started. Place search remains available." }); }
+    }).catch(() => { if (!disposed) updateMapState({ status: "failed", message: "Map could not be started. Place search remains available." }); });
 
     return () => {
       disposed = true;
+      clearTimers();
       resizeObserver?.disconnect();
       if (instance && onStyleLoad) instance.off("style.load", onStyleLoad);
       markers.current.forEach((marker) => marker.remove());
@@ -72,7 +170,7 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
 
   useEffect(() => {
     const instance = map.current;
-    if (!ready || !instance || !instance.isStyleLoaded()) return;
+    if ((mapState.status !== "ready" && mapState.status !== "degraded") || !instance || !instance.isStyleLoaded()) return;
     void import("maplibre-gl").then((maplibre) => {
       if (map.current !== instance || !instance.isStyleLoaded()) return;
       markers.current.forEach((marker) => marker.remove());
@@ -113,11 +211,11 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
         const point = points[0];
         instance.flyTo({ center: [point.lon, point.lat], zoom: 14, padding: { top: 50, right: 30, bottom: latest.current.bottomPadding, left: 30 }, duration: 220 });
       }
-    }).catch(() => setError(true));
-  }, [origin, destination, geometry, bottomPadding, ready, styleRevision]);
+    }).catch(() => updateMapState({ status: "failed", message: "The selected route could not be drawn on the map." }));
+  }, [origin, destination, geometry, bottomPadding, mapState.status, styleRevision]);
 
   return <div className="map-layer">
-    <div className="route-map" ref={container} data-map-ready={ready ? "true" : "false"} aria-label="Interactive map showing selected places and provider route geometry" role="region" />
-    {error && <div className="map-error" role="status">Map tiles are unavailable. Place search remains available.</div>}
+    <div className="route-map" ref={container} data-map-ready={mapState.status === "ready" || mapState.status === "degraded" ? "true" : "false"} data-map-provider={mapState.status === "ready" || mapState.status === "degraded" ? mapState.provider : "loading"} aria-label="Interactive map showing selected places and provider route geometry" role="region" />
+    {(mapState.status === "degraded" || mapState.status === "failed") && <div className="map-error" role="status">{mapState.message}</div>}
   </div>;
 }

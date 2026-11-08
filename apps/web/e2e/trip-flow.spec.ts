@@ -40,7 +40,7 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
 
   await page.getByRole("button", { name: "Choose destination" }).click();
   const destinationSearch = page.getByRole("combobox", { name: "Destination place search" });
-  await destinationSearch.fill("Matina");
+  await destinationSearch.fill("Matina Town Square");
   await expect(page.getByRole("option")).toHaveCount(1);
   await page.getByRole("option").click();
 
@@ -52,15 +52,17 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
 
   await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
   await page.screenshot({ path: "/tmp/wandr-results-390.png", fullPage: true });
-  await expect(page.getByText("No verified Davao public-transport routes or fare rules are currently available.")).toBeVisible();
+  await expect(page.getByText("Fare comparison unavailable.")).toBeVisible();
   await page.getByRole("button", { name: "Get there faster" }).click();
   await expect(page.getByRole("button", { name: "Get there faster" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText(/longer than Wandr’s short-walk comparison limit/)).toBeVisible();
+  await expect(page.getByText("Complete passenger travel time unavailable.")).toBeVisible();
   await expect(page.getByRole("button", { name: /Lowest supported fare|Shortest complete time/ })).toHaveCount(0);
-  await page.getByRole("button", { name: "View route" }).click();
-  await expect(page.getByRole("heading", { name: "Route details" })).toBeVisible();
+  await page.getByRole("button", { name: /Drive estimate.*Fare unavailable.*Road time/ }).click();
+  await expect(page.getByRole("heading", { name: "Journey details" })).toBeVisible();
   await expect(page.getByText("Fare unavailable")).toBeVisible();
-  await page.getByRole("button", { name: "Back to route options" }).click();
+  await expect(page.getByText("Road path only · vehicle service unverified")).toBeVisible();
+  await expect(page.getByText(/Head northeast on the mapped road/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Back to comparison" }).click();
   await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Get there faster" })).toHaveAttribute("aria-pressed", "true");
   expect(submitted).toHaveLength(1);
@@ -87,6 +89,28 @@ test("GPS is opt-in and permission denial leaves manual search available", async
   await expect(page.getByRole("button", { name: "Choose starting point" })).toBeEnabled();
 });
 
+test("reviewed local Davao aliases appear immediately and merge with provider results", async ({ page }) => {
+  await page.route("**/v1/places/search**", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ places: [
+      { id: "provider-abreeza", label: "Abreeza Ayala Mall Davao", addressLine: "J. P. Laurel Avenue, Davao City, Philippines", category: "commercial.shopping_mall", source: "Geoapify", confidence: null, coordinates: { lon: 125.611561, lat: 7.0912032 } },
+      { id: "provider-other", label: "Abreeza Parking", addressLine: "Davao City, Philippines", category: "parking", source: "Geoapify", confidence: null, coordinates: { lon: 125.612, lat: 7.091 } },
+    ] }) });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Choose starting point" }).click();
+  const input = page.getByRole("combobox", { name: "Starting point place search" });
+  await input.fill("Abreeza Mall");
+  const localResult = page.getByRole("option", { name: /Abreeza Ayala Mall Davao/ });
+  await expect(localResult).toBeEnabled();
+  await expect(localResult).toBeVisible();
+  await expect(page.getByRole("option")).toHaveCount(1);
+  await expect(page.getByRole("option", { name: /Abreeza Parking/ })).toBeVisible({ timeout: 2_500 });
+  await expect(page.getByRole("option")).toHaveCount(2);
+  await localResult.click();
+  await expect(page.getByRole("button", { name: /Choose starting point, Abreeza Ayala Mall Davao/ })).toBeVisible();
+});
+
 test("global named places remain selectable and an unsupported journey is explained", async ({ page }) => {
   const tokyo = { id: "geoapify:tokyo-tower", label: "Tokyo Tower", addressLine: "Minato City, Tokyo, Japan", category: "tourism.attraction", source: "Geoapify", confidence: 0.99, coordinates: { lat: 35.6586, lon: 139.7454 } };
   const eiffel = { id: "geoapify:eiffel-tower", label: "Eiffel Tower", addressLine: "Champ de Mars, Paris, France", category: "tourism.attraction", source: "Geoapify", confidence: 0.99, coordinates: { lat: 48.8584, lon: 2.2945 } };
@@ -111,7 +135,7 @@ test("global named places remain selectable and an unsupported journey is explai
   await expect(page.getByRole("option")).toContainText(/Tokyo Tower.*Minato City, Tokyo, Japan/);
   await destinationSearch.press("Enter");
   await page.getByRole("button", { name: "Find routes" }).click();
-  await expect(page.getByText(/Place found; transport comparison is not supported/)).toBeVisible();
+  await expect(page.getByText("This journey is outside Wandr’s current transport-comparison coverage.")).toBeVisible();
   await expect(page.getByRole("button", { name: /Choose starting point, Eiffel Tower/ })).toHaveCount(0);
 });
 

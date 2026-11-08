@@ -1,25 +1,29 @@
 # Implementation status
 
-## Repository audit and work state (2026-11-08)
+## Audit and delivery
 
-- Audited the existing Wandr repository, dependencies, source, tests, Worker/Pages configuration, and authenticated Cloudflare account before changing code. Initial branch `main` matched `origin/main` at `4d520936fb96a561a570451fab4b87b1c6c82148`; implementation is isolated on `codex/wandr-full-correction-20261108`.
-- Starting checks: `npm ci`, `npm run check`, `npm run test:e2e`, `npm audit`, and Worker dry-run passed. Baseline defects and missing external resources are recorded in [TEST_REPORT.md](./TEST_REPORT.md).
-- Geoapify route geometry normalization is committed in `bce3022`. Subsequent search/coverage, comparison eligibility, map, interface, and documentation changes are recorded in later commits on this same safe branch.
-- The initial account audit found no Wandr deployment resources. After receiving the Geoapify key and deployment authorization, created a dedicated `wandr` Pages project, `wandr-api-preview`, and `wandr-api-production`; configured the exact preview/production CORS origins and production API custom domain; and deployed both preview and production. The Pages domain and API custom domain are active. The Pages CNAME was added only for `wandr.ricky.network`; unrelated records and projects were left unchanged.
+The repository was inspected before edits: workspace source, dependencies/lockfile, tests, static-export configuration, Cloudflare Workers/Pages configuration, current branch/remotes, and live production endpoints. The original `main`/`origin/main` was `4d520936fb96a561a570451fab4b87b1c6c82148`; implementation and verification took place on `codex/wandr-full-correction-20261108`, whose parent history included the earlier route-normalization correction. The unrelated untracked root file `a.md` was preserved and excluded from deployment changes.
+
+The production basemap failure was not reproducible during the live browser audit: OpenFreeMap style, metadata, sprites, glyphs, vector tiles and the self-hosted MapLibre worker returned successful responses, and WebGL drew the Davao map. The code audit did expose a lifecycle defect: every early MapLibre `error` (including recoverable sprite/glyph errors) immediately set the permanent map-error state. The map now waits for a first complete render, falls back to direct OpenStreetMap raster tiles after a confirmed primary-style startup failure, shows the required fallback attribution, recovers to OpenFreeMap on reconnect, and reports WebGL context loss/restoration. Browser checks cover primary pixels, sprite failures, real fallback tile responses, reconnect, context recovery and map reinitialization.
+
+Place search received name-first provider ranking, a bounded 60-second query/bias cache, a shorter debounce with stale-result protection, and seven reviewed local Davao aliases. These records are provider-sourced landmark names and coordinates, not an inferred transit network. Results and journey detail were simplified to keep a road estimate visibly separate from an actual passenger option; fare and complete passenger-time comparisons remain unavailable when no sourced option is eligible.
 
 ## Phase gates
 
-| Phase | Status | Completed | Remaining gate |
-|---|---|---|---|
-| 1. Providers, GPS, and map routes | **PARTIAL — live routes pass** | GeoJSON validation, multi-leg preservation, metric normalization, timeout/quota/configuration errors, abort propagation, and GPS race handling pass local tests. Production Geoapify route and route rendering pass a live Davao browser journey. | Physical GPS grant/timeout and live MultiLineString response still need verification. |
-| 2. Worldwide establishment search | **PASS — live provider checked** | Production search returned Davao mall, hospital, school, university, airport, and Paris-area results with source coordinates/categories where provided. Global scope handling returns an explicit unsupported journey outside the current approximate Davao rectangle. | Same-name ambiguity and independent coordinate checks remain partially verified. |
-| 3. Grayscale map-first experience | **PARTIAL — production browser journey passes** | Production UI loads over HTTPS, shows map attribution, runs live place search, and renders provider-backed Davao road results without browser errors. Existing Playwright coverage checks the exact 13 requested viewport sizes, keyboard selection, back navigation, opt-in GPS denial, and unsupported journeys. | Physical iOS/Android touch, GPS, and keyboard checks remain unverified. |
-| 4. Verified Davao passenger journeys and fares | **BLOCKED** | No fabricated local option or fare is presented. Road driving is an unranked baseline; only short routed walking can be ranked. Current Davao project and fare-source gaps are recorded in [DATA_SOURCES.md](./DATA_SOURCES.md). | Need current traceable stop/route/direction data and applicable current LTFRB fare sources supporting at least two repeatable Davao passenger journeys. |
-| 5. Staging, production, and handoff | **DEPLOYED — provider checks pass** | Pages preview and production, preview and production API Workers, secret configuration, CORS, custom domains, TLS, live searches/routes, and deployed browser journey verified. | Physical devices and Phase 4 source-backed transit/fare comparison remain unresolved. |
+| Phase | Status | Evidence and remaining gate |
+|---|---|---|
+| 1. Providers, GPS and map routes | **PARTIAL** | Provider route normalization/validation and prior live Davao route checks pass. Map behavior now has browser coverage for live resources and recovery. No physical GPS grant/timeout test or live MultiLineString response was observed. |
+| 2. Worldwide place search | **PASS for provider-backed lookup; PARTIAL for ranking** | Live Davao, Paris, Tokyo and Sydney searches worked. Name-first scoring, alias merging, duplicate suppression and browser query caching are covered locally. Search remains a place lookup, not proof of transport coverage. Same-name ambiguity and independent coordinate adjudication are not complete. |
+| 3. Grayscale map-first interface | **PASS for automated viewport/browser checks; PARTIAL for devices** | Search, result, detail and unsupported-scope journeys, map attribution/fallback, keyboard search, touch-sized controls and 13 viewport sizes passed browser checks. Physical iOS/Android and device GPS checks remain unperformed. |
+| 4. Verified Davao passenger journeys and fares | **BLOCKED by source authorization/data** | No passenger option or fare is fabricated. The City operates a public DC Bus tracker, but no documented integration API/data-reuse permission or validated stop directions was found. Current official fare files were not matched to the specific Davao journeys. At least two repeatable, source-backed passenger journeys and applicable fare rules are still required. |
+| 5. Preview and production deployment | **PREVIEW VERIFIED; PRODUCTION PROMOTION PENDING** | Preview Worker and Pages deployment were updated and a real Geoapify Davao place-selection/comparison browser journey passed over HTTPS after fixing the preview hostname in exact-origin CORS. Production remains on its previously live build until the verified commit is fast-forwarded to `main`, production is deployed from `main`, and its live checks pass. |
 
-## Implementation notes
+## Supported behavior and limits
 
-- Search and comparison coverage are separate: worldwide lookup does not imply global transportation coverage.
-- `compare` returns no public-transit, taxi, tricycle, or ride-hailing claim. Long or slow walks above the 1.5 km / 25 minute design limit are excluded from standard comparison. Driving routes have unknown fares and cannot win the fastest passenger-journey sort.
-- Static production build rejects a missing `NEXT_PUBLIC_API_BASE_URL`; the local static-build check explicitly supplies a local Worker URL. No provider secret is exposed to the browser.
-- Deployment is complete at https://wandr.ricky.network and https://api.wandr.ricky.network. The complete passenger-transit comparison MVP is not claimed because Phase 4 remains blocked. See the acceptance evidence matrix in [TEST_REPORT.md](./TEST_REPORT.md).
+- Place lookup is worldwide; the transport-coverage check remains an approximate Davao coordinate rectangle, not a city boundary.
+- Only a provider-routed short walk within 1.5 km and 25 minutes can qualify as an actual comparison option. A Geoapify driving route is labeled as a road-time baseline, has unknown fare/service availability, and cannot win fastest/cheapest passenger ranking.
+- The app does not claim a bus, jeepney, taxi, tricycle, ride-hail, flight or booking service. Unknown fares are unavailable, not estimated.
+- The Geoapify credential is kept in the preview/production Worker secret stores; no client bundle, static-build input, tracked source or committed environment file contains it.
+- Production rollout must be made from the verified commit on `main` without rewriting remote history. The preview remains available for review.
+
+See [the evidence-based test report](./TEST_REPORT.md) and [the data-source limits](./DATA_SOURCES.md).

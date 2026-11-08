@@ -1,32 +1,34 @@
 # Test and acceptance report
 
-Last checked: 2026-11-08. This report distinguishes local code/fixture tests from provider-backed and deployed behavior. Fixture passes are not counted as live integration passes.
+Last checked: 2026-11-08. This report separates deterministic tests from live Geoapify/map checks and deployment observations. Browser fixtures are not counted as provider integration passes.
 
 ## Repository baseline
 
-- Starting branch `main` matched `origin/main` at `4d520936fb96a561a570451fab4b87b1c6c82148`; dependency install and baseline checks passed before changes.
-- Baseline screenshot: `/tmp/wandr-baseline.png`. Final UI screenshots: `/tmp/wandr-search-390.png` and `/tmp/wandr-results-390.png`. The final screenshots use a real OpenFreeMap/OSM basemap and test-only intercepted route/search responses.
-- `npm ci`: PASS at audit baseline; no dependency/lockfile changes were made in this implementation.
+- Starting branch `main` matched `origin/main` at `4d520936fb96a561a570451fab4b87b1c6c82148`. Work was performed on `codex/wandr-full-correction-20261108`; the unrelated root `a.md` remains untracked and untouched.
+- Production map screenshot: `/tmp/wandr-production-map-mobile.png`. Automated screenshots: `/tmp/wandr-map-320.png`, `/tmp/wandr-map-375.png`, `/tmp/wandr-map-390.png`, `/tmp/wandr-map-430.png`, `/tmp/wandr-map-1280.png`, and `/tmp/wandr-map-fallback-390.png`. The primary and fallback screenshots use live public map resources.
+- `npm ci`: PASS during initial audit; package manifests and lockfile were unchanged by this correction.
 
 ## Latest verification
 
-- `npm run check`: PASS (strict TypeScript in all workspaces, ESLint, 28 unit tests, local static Next export).
-- `npm run test:e2e`: PASS (4 Playwright journeys, including map readiness, search/select/swap, results/details/back, unsupported global journey, opt-in GPS denial, attribution, and no horizontal overflow at 320, 360, 375, 390, 414, 430, 600, 768, 1024, 1280, 1440, 844×390, and 932×430).
-- `NEXT_PUBLIC_API_BASE_URL=https://api.wandr.ricky.network npm run build:web`: PASS. The static export was deployed to the Pages production branch and serves at the requested custom domain.
+- `npm run check`: PASS after implementation (strict TypeScript in all workspaces, ESLint, 31 unit tests, local static Next export).
+- `npm run test:e2e`: PASS, 9 browser tests. This includes live map vector-tile responses and nonuniform WebGL pixels, responsive resizing, nonfatal sprite failure, simulated primary style outage followed by actual OSM PNG tiles and online recovery, actual WebGL context loss/restoration, single map instance after reload, search/selection/sort/details/back, Davao alias merge, global unsupported scope and opt-in GPS denial. Widths 320, 375, 390, 430 and 1280 were checked in the map test; the trip-flow suite additionally checks 360, 414, 600, 768, 1024, 1440, 844×390 and 932×430.
+- `NEXT_PUBLIC_API_BASE_URL=https://wandr-api-preview.rickyrodrigo-ph.workers.dev npm run build:web`: PASS. Preview static export was deployed to Cloudflare Pages branch `codex-wandr-full-correction`; its current deployment alias is `https://codex-wandr-full-correction-oiad.wandr-ld1.pages.dev`.
 - `npm audit`: PASS, zero known vulnerabilities.
-- `npm run deploy:dry-run -w @wandr/api`: PASS (Wrangler 4.158.0; 22.48 KiB upload, 6.46 KiB gzip; production rate-limit binding present). This did not deploy anything.
+- `npm run deploy:dry-run -w @wandr/api`: PASS (Wrangler 4.158.0; 26.87 KiB upload, 7.46 KiB gzip; production rate-limit binding present). The dry run itself did not deploy.
 - `npm run build:web` with no API URL: EXPECTED BLOCK (exit 1). The production static-build gate prevents output without a valid HTTPS Worker URL. `npm run build:web:local` explicitly supplies the local Worker URL for local build checks.
 - `git diff --check`: PASS.
 - Local Worker HTTP smoke: health returned `configured.geoapify=false` and `providersProbed=false`; global place search returned `503 CONFIGURATION_MISSING`; a cross-region Eiffel Tower→Tokyo Tower compare returned `scope: unsupported`, no route options, and no route-provider request; CORS granted `http://localhost:3000` and withheld `Access-Control-Allow-Origin` from `https://untrusted.example`.
-- Local browser map: OpenFreeMap Positron tiles rendered with OpenStreetMap/OpenFreeMap and Geoapify attribution. Playwright intercepts place/compare APIs for deterministic journeys; it did not make real Geoapify calls.
+- `git diff --check`: PASS. The API key is kept in Cloudflare Worker secrets; secret scan and final post-deployment check must still be recorded.
+- Local browser map: OpenFreeMap Positron tiles render with OpenStreetMap/OpenFreeMap and Geoapify attribution. Most Playwright trip-flow tests intercept API responses; the map resilience tests use actual OpenFreeMap/OSM resources. Provider integration is recorded separately below.
 
 ## External provider and deployment checks
 
-- The user-provided Geoapify key is stored as a secret on `wandr-api-preview` and `wandr-api-production`; it is absent from source, build arguments, and the static bundle.
-- Live production searches on 2026-11-08 returned Davao mall, hospital, school, university, airport, and Paris-area results with Geoapify coordinates (and categories where supplied). A live Davao comparison returned provider GeoJSON LineString geometry. The longer walk was excluded by the configured limit; a road-time estimate appeared with unknown fare and no passenger-service claim.
-- Preview site: https://codex-wandr-full-correction.wandr-ld1.pages.dev. Preview API: https://wandr-api-preview.rickyrodrigo-ph.workers.dev. Production site: https://wandr.ricky.network. Production API: https://api.wandr.ricky.network. The Pages custom domain and Worker custom domain report active; HTTPS returns 200.
-- The preview and production UI journeys used live Geoapify searches and compare calls and reached the route-options screen with no browser errors. The production browser used a host mapping to the public Cloudflare edge because this machine's default DNS resolver still had a negative cache; public resolvers returned Cloudflare addresses. The API returned `Access-Control-Allow-Origin: https://wandr.ricky.network` for the production site and omitted that header for an untrusted origin.
-- No physical iOS/Android touch, GPS-grant, or GPS-timeout test was performed. Phase 4 remains blocked because no traceable current Davao passenger-route/stop/direction dataset and applicable current fare matrix supports two repeatable passenger journeys.
+- The Geoapify key is configured only as preview/production Worker secrets. It was not emitted to the client bundle, tracked source, or build environment. A final automated scan is pending.
+- Live provider searches returned Davao mall, college, university, hospital, airport and City Hall results and Paris, Tokyo and Sydney landmarks. Preview's current Worker returned Francisco Bangoy International Airport as the top exact-name match (HTTP 200; 1.005 s in this single request). The production search benchmark performed before this change had p50 1.308 s and p95 4.559 s across ten serial requests, with one slow college result; this is a small sample, not a service-level guarantee. Name-first ranking addresses the inspected weak global match ordering but does not guarantee authoritative POI identity or complete disambiguation.
+- Preview: `https://codex-wandr-full-correction-oiad.wandr-ld1.pages.dev`; API: `https://wandr-api-preview.rickyrodrigo-ph.workers.dev`; preview Worker version `16034516-dfc6-4beb-8b9c-b1ba0107a90f`; Pages deployment `8303c8c7-70e6-49bb-a8be-78504e48098f`. A browser-selected Davao origin/destination completed a real HTTPS `POST /v1/trips/compare` (HTTP 200, exact CORS origin), drew the map, and displayed the driving road-time baseline as an unverified vehicle journey with no fare. Preview health reports configured provider secret. Untrusted-origin preflight omitted `Access-Control-Allow-Origin`.
+- The production map browser audit returned HTTP 200 for its current style, style metadata, sprites, glyphs, sampled vector tiles and MapLibre worker, rendered nonuniform WebGL pixels, and had no console errors/page errors. The historical failure was not reproduced, so no failed production resource URL/status can be asserted. The discovered error-state lifecycle flaw is regression-tested with simulated recoverable sprite and fatal-style failures.
+- Production before promotion: `https://wandr.ricky.network`; API `https://api.wandr.ricky.network`. Production preview deployment and Worker details must be replaced below after main is fast-forwarded and production is redeployed and retested.
+- Physical iOS/Android touch, GPS grant and timeout were not tested. Phase 4 remains blocked: there is no documented DIBS integration API/data-reuse permission, validated ordered passenger-stop/direction dataset, or applicable current fare matrix supporting two repeatable journeys.
 
 ## A01–A40 acceptance matrix
 

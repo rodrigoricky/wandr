@@ -10,7 +10,7 @@
   "env": {
     "preview": {
       "name": "wandr-api-preview",
-      "vars": { "ALLOWED_ORIGINS": "http://localhost:3000,https://codex-wandr-full-correction.wandr-ld1.pages.dev" },
+      "vars": { "ALLOWED_ORIGINS": "http://localhost:3000,https://codex-wandr-full-correction.wandr-ld1.pages.dev,https://codex-wandr-full-correction-oiad.wandr-ld1.pages.dev" },
       "ratelimits": [{ "name": "API_LIMITER", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } }]
     },
     "production": {

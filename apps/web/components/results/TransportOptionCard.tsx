@@ -1,14 +1,17 @@
 "use client";
 
-import { ArrowRight, Clock3, Footprints, Route as RouteIcon, Wallet } from "lucide-react";
+import { Clock3, Footprints, Route as RouteIcon, Wallet } from "lucide-react";
 import type { TransportOption } from "@wandr/shared";
 import { fareLabel, formatDistance, formatDuration } from "@/lib/formatting";
 
-export function TransportOptionCard({ option, badge, onView }: { option: TransportOption; badge?: string; onView: () => void }) {
-  return <article className="option-card">
-    <div className="flex items-start justify-between gap-2"><div><p className="font-semibold">{option.title}</p><p className="mt-1 text-xs text-[var(--muted)]">{option.mode === "drive" ? "Road-time estimate · passenger service unverified" : "Routed walking path · safety and accessibility unverified"}</p></div>{badge && <span className="option-badge">{badge}</span>}</div>
-    <div className="mt-4 grid grid-cols-2 gap-y-3 text-sm"><span className="flex items-center gap-2"><Wallet size={16}/>{fareLabel(option)}</span><span className="flex items-center gap-2"><Clock3 size={16}/>{formatDuration(option.totalDurationSeconds)}</span>{option.mode === "walk" && <span className="col-span-2 flex items-center gap-2 text-[var(--muted)]"><Footprints size={16}/>{formatDistance(option.totalWalkingMeters)} walking</span>}</div>
-    {option.note && <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">{option.note}</p>}
-    <button className="secondary-button mt-4 w-full" type="button" onClick={onView}><RouteIcon size={17}/>View route<ArrowRight size={16} className="ml-auto"/></button>
-  </article>;
+export function TransportOptionCard({ option, badge, badgeKind, onSelect }: { option: TransportOption; badge?: string; badgeKind?: "money" | "fastest"; onSelect: () => void }) {
+  const timeLabel = formatDuration(option.totalDurationSeconds);
+  const fare = fareLabel(option);
+  const routeDistance = option.legs.reduce<number | null>((sum, leg) => sum === null || leg.distanceMeters === null ? null : sum + leg.distanceMeters, 0);
+  const walking = option.totalWalkingMeters;
+  return <button className="option-card" type="button" onClick={onSelect} aria-label={`${option.title}. ${fare}. ${option.mode === "drive" ? "Road time" : "Journey time"}: ${timeLabel}. Select for journey details.`}>
+    <span className="option-card-heading"><span className="option-mode-icon" aria-hidden="true"><RouteIcon size={18}/></span><span className="min-w-0 flex-1"><strong className="block truncate text-sm font-semibold">{option.title}</strong><small className="mt-1 block text-xs text-[var(--muted)]">{option.mode === "drive" ? "Road-time baseline" : "Walking route"}</small></span>{badge && <span className={`option-badge${badgeKind === "fastest" ? " option-badge-fastest" : ""}`}>{badge}</span>}</span>
+    <span className="option-card-metrics"><span className="option-fare"><Wallet size={15} aria-hidden="true"/><strong>{fare}</strong></span><span className="option-time"><Clock3 size={15} aria-hidden="true"/><span><small>{option.mode === "drive" ? "Road time" : "Time"}</small><strong>{timeLabel}</strong></span></span></span>
+    <span className="option-card-footnote">{option.mode === "walk" ? <><Footprints size={14} aria-hidden="true"/>{formatDistance(walking)} walking</> : <>Road path · fare and vehicle availability unknown</>}{routeDistance !== null && <span className="option-route-distance">Route {formatDistance(routeDistance)}</span>}</span>
+  </button>;
 }

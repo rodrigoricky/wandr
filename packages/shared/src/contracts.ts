@@ -8,6 +8,10 @@ export type Place = {
   city?: string | null;
   country?: string | null;
   source?: string;
+  sourceRecord?: string;
+  sourceUrl?: string;
+  sourceQuery?: string;
+  checkedAt?: string;
   confidence?: number | null;
 };
 export type FareEstimate = {
@@ -54,5 +58,5 @@ export type CompareResponse = {
   options: TransportOption[];
   warnings: string[];
 };
-export type PlaceSuggestion = Place & { addressLine: string; category: string | null; source: "Geoapify"; confidence: number | null };
+export type PlaceSuggestion = Place & { addressLine: string; category: string | null; source: "Geoapify" | "Wandr Davao landmark index"; confidence: number | null };
 export type ApiError = { error: { code: string; message: string; retryable: boolean } };

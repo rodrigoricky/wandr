@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ArrowLeft, ArrowLeftRight, Clock3, Footprints, LocateFixed, MapPin, Navigation, Search, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Clock3, Footprints, LocateFixed, MapPin, Search, Wallet } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { combineRouteGeometries } from "@wandr/shared";
 import type { CompareResponse, Place, PlaceSuggestion, TransportOption } from "@wandr/shared";
@@ -17,11 +17,14 @@ type SortMode = "cheapest" | "fastest";
 type Screen = { kind: "search" } | { kind: "loading" } | { kind: "results"; data: CompareResponse; sort: SortMode } | { kind: "details"; data: CompareResponse; sort: SortMode; optionId: string };
 type PickerTarget = "origin" | "destination";
 
-function routeUrl(data: CompareResponse, option: TransportOption): string {
-  const origin = `${data.origin.coordinates.lat},${data.origin.coordinates.lon}`;
-  const destination = `${data.destination.coordinates.lat},${data.destination.coordinates.lon}`;
-  const mode = option.mode === "walk" ? "walking" : "driving";
-  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=${mode}`;
+function comparisonNotice(data: CompareResponse, sort: SortMode, options: TransportOption[]): string | null {
+  if (data.scope !== "davao_city") return null;
+  if (!options.some((option) => option.rankingEligible[sort])) {
+    return sort === "cheapest" ? "Fare comparison unavailable." : "Complete passenger travel time unavailable.";
+  }
+  if (data.warnings.some((warning) => warning.includes("No verified Davao public-transport routes"))) return "Public-transport routes and fares unavailable.";
+  if (data.warnings.some((warning) => warning.includes("short-walk comparison limit"))) return "Walking is too long to recommend for this trip.";
+  return null;
 }
 
 export default function Home() {
@@ -96,6 +99,7 @@ export default function Home() {
   const mapDestination = resultData?.destination ?? destination;
   const mapGeometry = mapOption ? combineRouteGeometries(mapOption.legs.map((leg) => leg.geometry)) : null;
   const bottomPadding = screen.kind === "search" || screen.kind === "loading" ? 330 : screen.kind === "results" ? 500 : 470;
+  const resultNotice = resultData ? comparisonNotice(resultData, sort, sortedOptions) : null;
 
   async function searchRoutes() {
     if (!origin || !destination || !canSearch || screen.kind === "loading") return;
@@ -191,21 +195,17 @@ export default function Home() {
           <button aria-pressed={screen.sort === "cheapest"} onClick={() => setSort("cheapest")}><Wallet size={16}/>Save money</button>
           <button aria-pressed={screen.sort === "fastest"} onClick={() => setSort("fastest")}><Clock3 size={16}/>Get there faster</button>
         </div>
-        <div className="trip-summary"><p><strong>{screen.data.origin.label}</strong><span> to </span><strong>{screen.data.destination.label}</strong></p><button type="button" className="text-button" onClick={() => backTo({ kind: "search" })}>Edit</button></div>
-        <div className="space-y-2" aria-live="polite">{screen.data.warnings.map((warning) => <p className="inline-status" key={warning}>{warning}</p>)}</div>
-        {sortedOptions.length > 0 && !sortedOptions.some((option) => option.rankingEligible[screen.sort]) && <p className="inline-status" role="status">{screen.sort === "cheapest" ? "No supported fare is available to rank by price for this journey." : "No complete passenger journey time is available to rank. Road driving time is shown only as a baseline."}</p>}
-        {sortedOptions.length > 0 ? <div className="option-list">{sortedOptions.map((option, index) => <TransportOptionCard key={option.id} option={option} badge={index === 0 && option.rankingEligible[screen.sort] ? (screen.sort === "cheapest" ? "Lowest supported fare" : "Shortest complete time") : undefined} onView={() => pushScreen({ ...screen, kind: "details", optionId: option.id })}/>)}</div> : <div className="empty-state" role="status"><p>{screen.data.scope === "unsupported" ? "This journey is outside Wandr’s current transport-comparison coverage." : "No supported routes were returned for this trip."}</p><p>Place selections are kept. Edit either point or try another journey.</p></div>}
+        <div className="trip-summary"><p><strong>{screen.data.origin.label}</strong><span> to </span><strong>{screen.data.destination.label}</strong></p><button type="button" className="text-button" onClick={() => backTo({ kind: "search" })}>Edit trip</button></div>
+        {resultNotice && <p className="inline-status" role="status">{resultNotice}</p>}
+        {sortedOptions.length > 0 ? <div className="option-list">{sortedOptions.map((option, index) => <TransportOptionCard key={option.id} option={option} badge={index === 0 && option.rankingEligible[screen.sort] ? (screen.sort === "cheapest" ? "Lowest fare" : "Fastest") : undefined} badgeKind={screen.sort === "fastest" ? "fastest" : "money"} onSelect={() => pushScreen({ ...screen, kind: "details", optionId: option.id })}/>)}</div> : <div className="empty-state" role="status"><p>{screen.data.scope === "unsupported" ? "This journey is outside Wandr’s current transport-comparison coverage." : "No supported routes were returned for this trip."}</p><p>Place selections are kept. Edit either point or try another journey.</p></div>}
       </section>}
 
       {screen.kind === "details" && selectedOption && <section className="sheet sheet-details" aria-label="Route details">
         <div className="sheet-grabber" aria-hidden="true" />
-        <header className="details-heading"><button type="button" className="icon-button" onClick={() => backTo({ kind: "results", data: screen.data, sort: screen.sort })} aria-label="Back to route options"><ArrowLeft size={19}/></button><div><h1>Route details</h1><p>{selectedOption.title}</p></div></header>
-        <div className="detail-metrics"><div><span>Fare</span><strong>{fareLabel(selectedOption)}</strong></div><div><span>Total time</span><strong>{formatDuration(selectedOption.totalDurationSeconds)}</strong></div><div><span>Route distance</span><strong>{formatDistance(selectedOption.legs.reduce<number | null>((sum, leg) => sum === null || leg.distanceMeters === null ? null : sum + leg.distanceMeters, 0))}</strong></div>{selectedOption.mode === "walk" && <div><span>Walking</span><strong><Footprints size={14}/>{formatDistance(selectedOption.totalWalkingMeters)}</strong></div>}</div>
-        <p className="detail-note">{selectedOption.note}</p>
-        {selectedOption.legs.some((leg) => leg.steps.length > 0) && <ol className="route-steps" aria-label="Route instructions">{selectedOption.legs.flatMap((leg, legIndex) => leg.steps.map((step, stepIndex) => <li key={`${legIndex}-${stepIndex}`}><span>{step.instruction}</span>{step.distanceMeters !== null && <small>{formatDistance(step.distanceMeters)}</small>}</li>))}</ol>}
-        <p className="source-note">Route geometry and directions from {selectedOption.legs.find((leg) => leg.source)?.source ?? "the routing provider"}. Road estimates do not establish passenger service or fares.</p>
-        <a className="primary-button directions-button" href={routeUrl(screen.data, selectedOption)} target="_blank" rel="noreferrer"><Navigation size={18}/>Open directions</a>
-        <button type="button" className="text-button sheet-back-button" onClick={() => backTo({ kind: "results", data: screen.data, sort: screen.sort })}>Back to options</button>
+        <header className="details-heading"><button type="button" className="icon-button" onClick={() => backTo({ kind: "results", data: screen.data, sort: screen.sort })} aria-label="Back to comparison"><ArrowLeft size={19}/></button><div><h1>Journey details</h1><p>{selectedOption.title}</p></div></header>
+        <div className="detail-metrics"><div><span>Fare</span><strong>{fareLabel(selectedOption)}</strong></div><div><span>{selectedOption.mode === "drive" ? "Road time" : "Journey time"}</span><strong>{formatDuration(selectedOption.totalDurationSeconds)}</strong></div><div><span>{selectedOption.mode === "drive" ? "Road distance" : "Walking distance"}</span><strong>{formatDistance(selectedOption.mode === "walk" ? selectedOption.totalWalkingMeters : selectedOption.legs.reduce<number | null>((sum, leg) => sum === null || leg.distanceMeters === null ? null : sum + leg.distanceMeters, 0))}</strong></div></div>
+        <ol className="journey-breakdown" aria-label="Journey breakdown"><li><span className="journey-step-icon">A</span><span><small>Start</small><strong>{screen.data.origin.label}</strong></span></li><li><span className="journey-step-icon"><Footprints size={15}/></span><span><small>{selectedOption.mode === "walk" ? "Walk" : "Road route"}</small><strong>{selectedOption.mode === "walk" ? "Follow the mapped walking path" : "Road path only · vehicle service unverified"}</strong></span></li><li><span className="journey-step-icon">B</span><span><small>Arrive</small><strong>{screen.data.destination.label}</strong></span></li></ol>
+        <details className="source-details"><summary>Source and estimate limits</summary><p>{selectedOption.legs.find((leg) => leg.source)?.source ?? "Routing source unavailable"}. {selectedOption.note ?? "Provider details are unavailable."}</p></details>
       </section>}
 
       {picker && <LocationPicker title={picker === "origin" ? "Starting point" : "Destination"} bias={origin?.coordinates} onChoose={(place) => choosePlace(picker, place)} onClose={() => setPicker(null)}/>}

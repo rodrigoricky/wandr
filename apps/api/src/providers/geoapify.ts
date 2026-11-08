@@ -27,6 +27,20 @@ function normalizedText(value: string): string {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
+function placeRelevance(query: string, name: string, address: string): number {
+  const normalizedName = normalizedText(name);
+  const queryParts = query.split(" ").filter(Boolean);
+  const nameParts = normalizedName.split(" ");
+  if (normalizedName === query) return 500;
+  if (normalizedName.startsWith(query)) return 400;
+  if (nameParts.some((part) => part.startsWith(query))) return 350;
+  if (queryParts.length > 1 && queryParts.every((part) => nameParts.some((namePart) => namePart.startsWith(part)))) return 300;
+  const normalizedAddress = normalizedText(address);
+  if (normalizedAddress.includes(query)) return 100;
+  if (queryParts.length > 1 && queryParts.every((part) => normalizedAddress.includes(part))) return 50;
+  return 0;
+}
+
 export async function searchPlaces(env: Env, query: string, bias?: Coordinates, signal?: AbortSignal): Promise<PlaceSuggestion[]> {
   const url = new URL(`${base}/geocode/autocomplete`);
   url.searchParams.set("text", query);
@@ -77,9 +91,8 @@ export async function searchPlaces(env: Env, query: string, bias?: Coordinates, 
       confidence,
       coordinates,
     };
-    const normalizedName = normalizedText(label);
-    const nameScore = normalizedName === queryText ? 100 : normalizedName.startsWith(queryText) ? 60 : 0;
-    return [{ place, score: nameScore + (category ? 5 : 0) + (confidence ?? 0) * 4, index }];
+    const nameScore = placeRelevance(queryText, label, addressLine || formatted);
+    return [{ place, score: nameScore + (category ? 2 : 0) + (confidence ?? 0) * 0.5, index }];
   });
   const seenIds = new Set<string>();
   const seenLocations = new Set<string>();
