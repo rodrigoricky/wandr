@@ -53,4 +53,11 @@ The full end-to-end run covers production basemap pixels, sprite failure, fallba
 
 ## Deployment status
 
-Deployment evidence will be appended after the validated feature branch is pushed, fast-forwarded to `main`, deployed to Cloudflare Pages, and checked against the production URL.
+- Feature branch `codex/wandr-blue-ui-v2-20261108` was pushed, then fast-forwarded to `main` and pushed without force. Final `main` is `2c7de2c`.
+- Preview Pages deployment: `ba1f34ee-3364-4760-ad04-7bf39ca9dfef`, source `ab7e008`, alias [`codex-wandr-full-correction-8jjh.wandr-ld1.pages.dev`](https://codex-wandr-full-correction-8jjh.wandr-ld1.pages.dev/).
+- Preview Worker version: `5577c1d0-b0e1-45c0-8065-1a53e0a09fb9`, [`wandr-api-preview.rickyrodrigo-ph.workers.dev`](https://wandr-api-preview.rickyrodrigo-ph.workers.dev/v1/health).
+- Production Pages deployment: `54c37e0b-a27e-4d22-912d-58898d2e0b05`, source `2c7de2c`, custom domain [`wandr.ricky.network`](https://wandr.ricky.network/).
+- Production Worker version: `f132dcc3-b48c-4eab-927b-3f21df1c3e98`, custom domain [`api.wandr.ricky.network/v1/health`](https://api.wandr.ricky.network/v1/health).
+- Preview and production health returned HTTP 200 with `configured.geoapify=true`; live Geoapify place search returned Davao City Hall and Tokyo Tower; live local comparison returned a real Geoapify `LineString`; live Davao-to-Tokyo comparison returned DVO/HND, a schematic air corridor, and two disclosed reference options.
+- Preview browser check rendered the new blue UI, compact attribution, AdDU Jacinto demo origin, Geoapify Davao City Hall selection, and all four local provider cards. Production browser check repeated the same flow at [`wandr.ricky.network`](https://wandr.ricky.network/), with no page errors; only the known nonfatal OpenFreeMap style warnings were observed.
+- Production CORS allowed `https://wandr.ricky.network` and omitted `Access-Control-Allow-Origin` for `https://untrusted.example`.
