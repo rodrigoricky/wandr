@@ -268,11 +268,12 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
           const height = container.current?.clientHeight ?? 700;
           const compactAir = latest.current.routeKind === "air" && (container.current?.clientWidth ?? 0) <= 360;
           const topPadding = compactAir ? Math.min(190, Math.round(height * 0.18)) : 48;
-          const targetBottomPadding = Math.round(height * latest.current.sheetInsetRatio + (compactAir ? 48 : 0));
-          const bottom = Math.min(targetBottomPadding, Math.max(0, height - topPadding - 48));
           const sidePadding = compactAir ? 40 : 36;
           const width = container.current?.clientWidth ?? 390;
           const longitudeSpan = Math.abs(lastLongitude - first.lon);
+          const compactAirShortHaul = compactAir && longitudeSpan < 30;
+          const targetBottomPadding = Math.round(height * latest.current.sheetInsetRatio + (compactAirShortHaul ? 96 : 0));
+          const bottom = Math.min(targetBottomPadding, Math.max(0, height - topPadding - 48));
           const zoomForAvailableWidth = longitudeSpan > 0
             ? Math.log2(Math.max(1, width - sidePadding * 2) / (512 * longitudeSpan / 360))
             : 15;

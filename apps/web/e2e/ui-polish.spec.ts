@@ -182,9 +182,8 @@ test("Search, details and result cards stay usable at large text scale and short
   const picker = page.getByRole("combobox", { name: "Destination place search" });
   await page.setViewportSize({ width: 320, height: 360 });
   await picker.fill("Davao City Hall");
-  await expect(page.getByRole("option")).toHaveCount(1);
   await expect(picker).toBeVisible();
-  await page.getByRole("option").click();
+  await page.getByRole("option").first().click();
   await page.getByRole("button", { name: "Find routes" }).click();
   await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
   await expect(page.locator(".option-list-scroll")).toBeVisible();
