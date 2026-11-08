@@ -83,8 +83,9 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
         created.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
         created.addControl(new maplibre.AttributionControl({ compact: true, customAttribution: '<a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Powered by Geoapify</a>' }), "top-left");
         const useFallback = () => {
-          if (disposed || usingFallback) return;
+          if (disposed || (usingFallback && !primaryAttemptPending)) return;
           usingFallback = true;
+          primaryAttemptPending = false;
           clearTimers();
           updateMapState({ status: "initializing" });
           created.setStyle(fallbackStyle);
