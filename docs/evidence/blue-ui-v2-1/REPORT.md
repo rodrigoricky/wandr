@@ -67,6 +67,7 @@ Updated 2026-11-09. This report records the ordered implementation, verification
 - Production Geoapify search for `Davao City` returned HTTP 200 with six places.
 - Production local compare returned HTTP 200, `journeyType: local`, `scope: davao_city`, four options, a real `LineString` Geoapify leg, and `availability: estimated_demo`; CORS returned only `https://wandr.ricky.network`.
 - A fresh production browser session loaded the OpenFreeMap map, showed the AdDU demo origin, completed a real Davao City Hall search, and rendered the Route options summary with the arrow and `Edit trip` control.
+- Production DOM readback confirmed `data-map-ready="true"`, `data-map-provider="openfreemap"`, `data-map-theme="wandr-blue"`, all 11 verified theme layer IDs, zero loading overlays after readiness, and the compact summary text.
 
 ## Remaining limits
 
