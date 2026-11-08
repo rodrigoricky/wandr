@@ -61,8 +61,8 @@ async function chooseDestination(page: import("@playwright/test").Page, label: s
   await page.getByRole("button", { name: "Choose destination" }).click();
   const input = page.getByRole("combobox", { name: "Destination place search" });
   await input.fill(label);
-  await expect(page.getByRole("option")).toHaveCount(1);
-  await page.getByRole("option").click();
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await page.getByRole("option").filter({ hasText: label }).first().click();
   await page.getByRole("button", { name: "Find routes" }).click();
   await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
 }
@@ -83,6 +83,15 @@ async function captureMatrix(page: import("@playwright/test").Page, name: string
       expect(new Set(geometry.map((item) => item.top)).size).toBe(1);
       expect(geometry.every((item) => item.scrollWidth <= item.clientWidth)).toBe(true);
       expect(geometry.every((item) => item.left >= 0 && item.right <= width)).toBe(true);
+    }
+    if (!details && name.endsWith("results")) {
+      const ratio = await page.locator(".sheet-results").evaluate((element) => {
+        const sheet = element.getBoundingClientRect();
+        const viewport = document.querySelector(".app-viewport")!.getBoundingClientRect();
+        return sheet.height / viewport.height;
+      });
+      expect(ratio).toBeGreaterThan(0.54);
+      expect(ratio).toBeLessThan(0.66);
     }
     const overflows = await page.evaluate(() => ({
       document: document.documentElement.scrollWidth > innerWidth,
@@ -130,6 +139,8 @@ test("Search, local/air results and details fit the full viewport matrix", async
   expect(await page.evaluate(() => ({ sort: document.querySelector(".mode-toggle")?.getBoundingClientRect().toJSON(), summary: document.querySelector(".trip-summary")?.getBoundingClientRect().toJSON() }))).toEqual(beforeScroll);
   await page.getByRole("button", { name: "Get there faster" }).click();
   await expect(page.locator(".option-badge")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Get there faster" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".mode-toggle-indicator")).toHaveCSS("transform", /matrix\(1, 0, 0, 1/);
   await page.locator('.option-card[data-provider-id="grab_taxi"]').first().click();
   await expect(page.locator(".detail-metrics > div")).toHaveCount(3);
   await captureMatrix(page, "local-details", true);
@@ -174,4 +185,20 @@ test("Search, details and result cards stay usable at large text scale and short
   expect(new Set(tiles).size).toBe(1);
   await page.keyboard.press("Tab");
   expect(await page.evaluate(() => getComputedStyle(document.activeElement!).outlineStyle)).toBe("solid");
+});
+
+test("platform hint changes presentation only and keeps the shared search flow", async ({ browser, page }) => {
+  await page.goto("/");
+  await expect(page.locator(".app-viewport")).toHaveAttribute("data-platform-ui", "ios");
+
+  const androidContext = await browser.newContext({
+    userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/131.0 Mobile Safari/537.36",
+    viewport: { width: 390, height: 844 },
+  });
+  const androidPage = await androidContext.newPage();
+  await androidPage.goto("/");
+  await expect(androidPage.locator(".app-viewport")).toHaveAttribute("data-platform-ui", "android");
+  await expect(androidPage.getByRole("button", { name: "Use my current location" })).toBeVisible();
+  await expect(androidPage.getByRole("button", { name: "Find routes" })).toBeDisabled();
+  await androidContext.close();
 });
