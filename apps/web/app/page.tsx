@@ -185,14 +185,18 @@ export default function Home() {
       {screen.kind === "results" && <section className={`sheet sheet-results${mapOption?.mode === "flight" ? " sheet-results-air" : ""}`} aria-label="Route options">
         <h1 className="sr-only">Route options</h1>
         <div className="sheet-grabber" aria-hidden="true" />
-        <div className="mode-toggle" role="group" aria-label="Route preference">
-          <button aria-pressed={screen.sort === "cheapest"} onClick={() => setSort("cheapest")}><Wallet size={16}/>Save money</button>
-          <button aria-pressed={screen.sort === "fastest"} onClick={() => setSort("fastest")}><Clock3 size={16}/>Get there faster</button>
+        <div className="results-toolbar">
+          <div className="mode-toggle" role="group" aria-label="Route preference">
+            <button aria-pressed={screen.sort === "cheapest"} onClick={() => setSort("cheapest")}><Wallet size={16}/>Save money</button>
+            <button aria-pressed={screen.sort === "fastest"} onClick={() => setSort("fastest")}><Clock3 size={16}/>Get there faster</button>
+          </div>
+          <p className="estimates-note" role="note" aria-label="Prices and times are estimates, not live operator quotes or schedules.">Estimates</p>
+          <div className="trip-summary"><p><strong>{screen.data.origin.label}</strong><span> to </span><strong>{screen.data.destination.label}</strong></p><button type="button" className="text-button" onClick={() => backTo({ kind: "search" })}>Edit trip</button></div>
+          {resultNotice && <p className="inline-status" role="status">{resultNotice}</p>}
         </div>
-        <p className="estimates-note" role="note" aria-label="Prices and times are estimates, not live operator quotes or schedules.">Estimates</p>
-        <div className="trip-summary"><p><strong>{screen.data.origin.label}</strong><span> to </span><strong>{screen.data.destination.label}</strong></p><button type="button" className="text-button" onClick={() => backTo({ kind: "search" })}>Edit trip</button></div>
-        {resultNotice && <p className="inline-status" role="status">{resultNotice}</p>}
-        {sortedOptions.length > 0 ? <div className="option-list">{sortedOptions.map((option, index) => <TransportOptionCard key={option.id} option={option} airportCodes={option.mode === "flight" && screen.data.airports ? `${screen.data.airports.origin.iata} → ${screen.data.airports.destination.iata}` : undefined} badge={index === 0 && isOptionRankable(option, screen.sort) ? (screen.sort === "cheapest" ? "Lowest fare" : "Fastest") : undefined} badgeKind={screen.sort === "fastest" ? "fastest" : "money"} onSelect={() => pushScreen({ ...screen, kind: "details", optionId: option.id })}/>)}</div> : <div className="empty-state" role="status"><p>{screen.data.warnings[0] ?? (screen.data.scope === "unsupported" ? "This journey is outside Wandr’s current transport-comparison coverage." : "No supported routes were returned for this trip.")}</p></div>}
+        <div className="option-list-scroll" role="region" aria-label="Transport options" tabIndex={0}>
+          {sortedOptions.length > 0 ? <div className="option-list">{sortedOptions.map((option, index) => <TransportOptionCard key={option.id} option={option} airportCodes={option.mode === "flight" && screen.data.airports ? `${screen.data.airports.origin.iata} → ${screen.data.airports.destination.iata}` : undefined} badge={index === 0 && isOptionRankable(option, screen.sort) ? (screen.sort === "cheapest" ? "Lowest fare" : "Fastest") : undefined} badgeKind={screen.sort === "fastest" ? "fastest" : "money"} onSelect={() => pushScreen({ ...screen, kind: "details", optionId: option.id })}/>)}</div> : <div className="empty-state" role="status"><p>{screen.data.warnings[0] ?? (screen.data.scope === "unsupported" ? "This journey is outside Wandr’s current transport-comparison coverage." : "No supported routes were returned for this trip.")}</p></div>}
+        </div>
       </section>}
 
       {screen.kind === "details" && selectedOption && <section className="sheet sheet-details" aria-label="Route details">

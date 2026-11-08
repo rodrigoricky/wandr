@@ -67,6 +67,24 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("button", { name: /₱/ }).first()).toBeVisible();
   await expect(page.getByText("Fare comparison unavailable.")).toHaveCount(0);
+  await page.setViewportSize({ width: 320, height: 568 });
+  const beforeScroll = await page.evaluate(() => ({
+    mode: document.querySelector(".mode-toggle")?.getBoundingClientRect().toJSON(),
+    summary: document.querySelector(".trip-summary")?.getBoundingClientRect().toJSON(),
+  }));
+  const scrollResult = await page.locator(".option-list-scroll").evaluate((element) => {
+    const list = element as HTMLElement;
+    list.scrollTop = list.scrollHeight;
+    return { scrollTop: list.scrollTop, scrollHeight: list.scrollHeight, clientHeight: list.clientHeight };
+  });
+  expect(scrollResult.scrollTop).toBeGreaterThan(0);
+  expect(scrollResult.scrollHeight).toBeGreaterThan(scrollResult.clientHeight);
+  const afterScroll = await page.evaluate(() => ({
+    mode: document.querySelector(".mode-toggle")?.getBoundingClientRect().toJSON(),
+    summary: document.querySelector(".trip-summary")?.getBoundingClientRect().toJSON(),
+  }));
+  expect(afterScroll).toEqual(beforeScroll);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Get there faster" }).click();
   await expect(page.getByRole("button", { name: "Get there faster" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".option-badge")).toHaveCount(1);
@@ -76,6 +94,15 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
   await expect(page.locator(".detail-metrics > div")).toHaveCount(3);
   await expect(page.locator(".journey-breakdown > li")).toHaveCount(2);
   await expect(page.getByText("Source and estimate limits", { exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 320, height: 568 });
+  const metricRects = await page.locator(".detail-metrics > div").evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, left: rect.left, right: rect.right, scrollWidth: (element as HTMLElement).scrollWidth, clientWidth: (element as HTMLElement).clientWidth };
+  }));
+  expect(metricRects).toHaveLength(3);
+  expect(new Set(metricRects.map((metric) => metric.top)).size).toBe(1);
+  expect(metricRects.every((metric) => metric.scrollWidth <= metric.clientWidth)).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByText(/Head northeast on the mapped road/)).toHaveCount(0);
   await page.getByRole("button", { name: "Back to comparison" }).click();
   await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
