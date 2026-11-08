@@ -177,7 +177,8 @@ export default function Home() {
         <h1 className="sr-only">Route options</h1>
         <div className="sheet-grabber" aria-hidden="true" />
         <div className="results-toolbar">
-          <div className="mode-toggle" role="group" aria-label="Route preference">
+          <div className="mode-toggle" data-selected-sort={screen.sort} role="group" aria-label="Route preference">
+            <span className="mode-toggle-indicator" aria-hidden="true" />
             <button aria-pressed={screen.sort === "cheapest"} onClick={() => setSort("cheapest")}><Wallet size={16}/>Save money</button>
             <button aria-pressed={screen.sort === "fastest"} onClick={() => setSort("fastest")}><Clock3 size={16}/>Get there faster</button>
           </div>
