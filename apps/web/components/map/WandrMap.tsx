@@ -206,9 +206,13 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
         routeCoordinates.forEach((point) => bounds.extend(point));
         const height = container.current?.clientHeight ?? 700;
         const bottom = Math.min(latest.current.bottomPadding, Math.max(70, height - 100));
-        instance.fitBounds(bounds, { padding: { top: 72, right: 36, bottom, left: 36 }, maxZoom: 15, duration: 220 });
+        // A single-point flyTo keeps its padding on the map. Clear it before
+        // applying the result-sheet fit so the two paddings do not accumulate.
+        instance.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
+        instance.fitBounds(bounds, { padding: { top: 72, right: 36, bottom, left: 36 }, absolutePadding: true, maxZoom: 15, duration: 220 });
       } else if (points.length === 1) {
         const point = points[0];
+        instance.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
         instance.flyTo({ center: [point.lon, point.lat], zoom: 14, padding: { top: 50, right: 30, bottom: latest.current.bottomPadding, left: 30 }, duration: 220 });
       }
     }).catch(() => updateMapState({ status: "failed", message: "The selected route could not be drawn on the map." }));

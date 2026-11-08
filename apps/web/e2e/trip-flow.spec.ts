@@ -11,6 +11,10 @@ const line = { type: "LineString" as const, coordinates: [[125.608, 7.064], [125
 test("manual search, keyboard place selection, sorting, details, and back navigation", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const submitted: unknown[] = [];
+  const mapFitWarnings: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "warning" && message.text().includes("Map cannot fit within canvas")) mapFitWarnings.push(message.text());
+  });
   await page.route("**/v1/places/search**", async (route) => {
     const query = new URL(route.request().url()).searchParams.get("q")?.toLowerCase() ?? "";
     const place = query.includes("hall") ? origin : destination;
@@ -51,6 +55,7 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
   await page.getByRole("button", { name: "Find routes" }).click();
 
   await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
+  await expect.poll(() => mapFitWarnings).toHaveLength(0);
   await page.screenshot({ path: "/tmp/wandr-results-390.png", fullPage: true });
   await expect(page.getByText("Fare comparison unavailable.")).toBeVisible();
   await page.getByRole("button", { name: "Get there faster" }).click();
