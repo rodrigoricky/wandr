@@ -75,3 +75,19 @@ Updated 2026-11-08. This report distinguishes deterministic tests, live-provider
 3. Physical Android/iOS interaction, GPS grant/timeout, and device-network behavior remain unverified.
 
 See [DATA_SOURCES.md](./DATA_SOURCES.md), [ARCHITECTURE.md](./ARCHITECTURE.md), [BRAND_ASSETS.md](./BRAND_ASSETS.md), and [README.md](../README.md) for implementation and source boundaries.
+
+## Follow-up UI polish release — 2026-11-08
+
+This follow-up supersedes the older release IDs and test counts above for current `main` and the current production deployment. The follow-up began from `190f898d2191911659d94f31d8c04ec44f9ed06a`, applied the five correction phases sequentially, and pushed app/API code SHA `bd423c3cfdd43268e5f3b35d192a03126172fb14` plus test-only commits `e7e799ec2ee95571cdc83058ec1ac1dd7c2b8b22` (browser Back) and `61f8d069ce0968941964a1a8b00254118754f799` (duplicate campus destination) to current `main`.
+
+- Production Pages: deployment `b9b728df-ed11-4bca-8651-d90496eca21c`, branch `main`, source `bd423c3`, live at [wandr.ricky.network](https://wandr.ricky.network/).
+- Production Worker: version `f2db4893-ae25-40d6-bd0b-4274ce1abf28`, custom domain [api.wandr.ricky.network](https://api.wandr.ricky.network/v1/health); health returned 200 and `configured.geoapify=true` without exposing the key.
+- Preview Pages: deployment `f2b08d06-84bc-4245-8200-b8c2bb26d289`, branch `codex-wandr-full-correction-oiad`; preview Worker version `750c6228-0f20-43f6-b67c-b3cc5bf71d15`.
+- `npm run check`: PASS, strict TypeScript, ESLint, 55 unit tests (15 shared, 36 API, 4 web), and Next static export. Production build with the production HTTPS API URL also passed.
+- `npm run test:e2e`: PASS, 13/13 with one worker to avoid cross-browser screenshot/WebGL contention. Includes 50 fixture screenshots across the ten required viewports and five screens, no-overflow and metric-child geometry, pinned scroll controls, 150% text scale, 320×360 short keyboard, keyboard focus and reduced-motion checks, and the existing map/network/navigation suite. The latest tests invoke actual browser Back as well as in-app details Back and verify both preserving a different destination and clearing a duplicate campus destination.
+- `npm audit --audit-level=moderate`: PASS, zero known vulnerabilities. Preview and production Wrangler dry-runs and `git diff --check`: PASS.
+- Both deployed APIs completed live Geoapify search, AdDU Jacinto → Davao City Hall road comparison, and Davao → Tokyo comparison. Live routes returned Geoapify `LineString` road geometry; live international comparison resolved DVO→HND and two demo-model carrier options. Preview and production CORS granted only their configured origin and omitted the allow-origin header for an unrelated site.
+- Preview and production browser sessions showed the selected AdDU campus origin/A map marker, real named-place results, all four local provider identities and supplied logos, PAL/Cebu cards, correct airfare labels, details, and two endpoint entries. At production 320×568 the DVO/HND markers were above the results sheet; three detail metrics were adjacent in one row, and document, shell, and sheet overflow checks were false.
+- Screenshot evidence is stored in [`evidence/ui-polish/`](./evidence/ui-polish/); deterministic fixture captures are explicitly distinguished from live integration. The full acceptance map is in [`UI_POLISH_REPORT.md`](./UI_POLISH_REPORT.md).
+
+The live map emitted nonfatal OpenFreeMap style warnings for null shield values and aborted tile requests after camera movement; it remained ready, with no fit warning or page error. No physical iOS/Android, GPS permission grant, or GPS timeout run was performed. User-supplied SVG license/reuse terms remain unverified. Demo prices and air corridors are estimates/previews, not live operator quotes, passenger service, or flight schedules.

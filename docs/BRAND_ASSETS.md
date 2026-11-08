@@ -14,3 +14,5 @@ Reviewed 2026-11-08. The five source SVGs were supplied in the repository worksp
 The app metadata maps each provider to its name, transport class, local asset path, and subdued card accent in [`demo-estimates.ts`](../packages/shared/src/demo-estimates.ts). The images are rendered from the static site bundle, use `object-fit: contain`, have descriptive alternative text, and appear only in result/detail identities. Logos are not added to the map. Accent colors are UI tints, not claimed official palettes.
 
 The source images were validated by XML parsing and browser-rendered artwork bounds, then checked in the browser for nonzero natural image width. Their names and appearance are user-provided inputs. The local source files contain no license declarations; this sprint does not claim independently verified trademark or third-party logo reuse permission.
+
+For the 2026-11-08 UI polish release, the production static build and browser checks again confirmed nonzero natural image widths for Grab, Green GSM, Maxim, Philippine Airlines, and Cebu Pacific; both card and detail identity usage was exercised. This rendering evidence does not establish brand-use permission.
