@@ -20,6 +20,7 @@ This report records the ordered implementation and verification for `WANDR_BLUE_
 6. `5015eb7` — visual matrix, platform, layout, and interaction regression coverage.
 7. `58ee034` — deterministic recovery when a primary map style retry stalls.
 8. `ff6ce03` — keep real air-route airport markers above the compact results sheet at 320×700.
+9. `d26f333` — preserve navigation/attribution clearance on long-haul air routes while retaining the short-haul inset.
 
 ## Implementation evidence
 
