@@ -226,13 +226,13 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
       else {
         instance.addSource("wandr-route", { type: "geojson", data: roadFeature });
         instance.addLayer({ id: "wandr-route-casing", type: "line", source: "wandr-route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 8, "line-opacity": 0.96 } });
-        instance.addLayer({ id: "wandr-route-line", type: "line", source: "wandr-route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#111111", "line-width": 4, "line-opacity": 0.96 } });
+        instance.addLayer({ id: "wandr-route-line", type: "line", source: "wandr-route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#2457df", "line-width": 4, "line-opacity": 0.96 } });
       }
       const existingAir = instance.getSource("wandr-air-route") as import("maplibre-gl").GeoJSONSource | undefined;
       if (existingAir) existingAir.setData(airFeature);
       else {
         instance.addSource("wandr-air-route", { type: "geojson", data: airFeature });
-        instance.addLayer({ id: "wandr-air-route-line", type: "line", source: "wandr-air-route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#4b4b4b", "line-width": 2.5, "line-dasharray": [2, 2], "line-opacity": 0.88 } });
+        instance.addLayer({ id: "wandr-air-route-line", type: "line", source: "wandr-air-route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#17336d", "line-width": 2.5, "line-dasharray": [2, 2], "line-opacity": 0.88 } });
       }
 
       if (isAir && latest.current.geometry) {

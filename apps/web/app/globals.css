@@ -5,11 +5,14 @@
   color-scheme: light;
   --canvas: #f5f5f5;
   --surface: #fff;
-  --ink: #161616;
-  --muted: #666;
-  --subtle: #767676;
-  --border: #dedede;
-  --soft: #f0f0f0;
+  --wandr-blue: #2457df;
+  --wandr-navy: #17336d;
+  --wandr-tint: #eef3ff;
+  --ink: #172235;
+  --muted: #5a6576;
+  --subtle: #687386;
+  --border: #dee4ed;
+  --soft: #f2f5fb;
 }
 
 * { box-sizing: border-box; }
@@ -17,7 +20,7 @@ html, body { height: 100%; margin: 0; }
 body { background: var(--canvas); color: var(--ink); font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; -webkit-font-smoothing: antialiased; }
 button, input { font: inherit; }
 button { color: inherit; }
-button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--wandr-blue); outline-offset: 3px; }
 button:disabled { cursor: not-allowed; }
 a { color: inherit; }
 
@@ -33,12 +36,12 @@ a { color: inherit; }
 .map-error { position: absolute; left: 12px; right: 12px; top: 54px; z-index: 2; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--muted); font-size: 12px; }
 .maplibregl-ctrl-top-left { top: 8px; left: 8px; }
 .maplibregl-ctrl-top-right { top: 8px; right: 8px; }
-.maplibregl-ctrl-group { border: 1px solid #d8d8d8 !important; border-radius: 11px !important; box-shadow: none !important; overflow: hidden; }
+.maplibregl-ctrl-group { border: 1px solid var(--border) !important; border-radius: 11px !important; box-shadow: none !important; overflow: hidden; }
 .maplibregl-ctrl-group button { background: #fff !important; }
 .maplibregl-ctrl-attrib { max-width: none; border-radius: 7px !important; background: #fff !important; color: #333 !important; font-size: 8px !important; white-space: nowrap; }
 .maplibregl-ctrl-attrib a { color: #222 !important; }
 .maplibregl-ctrl-attrib-button { width: 28px !important; height: 28px !important; }
-.map-marker { width: 30px; height: 30px; display: grid; place-items: center; border: 2px solid #fff; background: #161616; color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 1px 3px #0006; }
+.map-marker { width: 30px; height: 30px; display: grid; place-items: center; border: 2px solid #fff; background: var(--wandr-blue); color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 1px 3px #0004; }
 .map-marker-origin { border-radius: 50%; }
 .map-marker-destination { border-radius: 5px; }
 .map-marker-airport { width: auto; min-width: 36px; height: 28px; padding: 0 6px; border-radius: 7px; font-size: 10px; }
@@ -53,7 +56,7 @@ a { color: inherit; }
 .trip-field { min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 9px 52px 9px 12px; border: 0; background: #fff; text-align: left; }
 .trip-field + .trip-field { border-top: 1px solid var(--border); }
 .trip-field:active, .swap-button:active, .secondary-button:active, .icon-button:active { background: #f2f2f2; }
-.place-glyph { width: 27px; height: 27px; flex: none; display: grid; place-items: center; border: 1.5px solid #222; color: #111; font-size: 10px; font-weight: 700; }
+.place-glyph { width: 27px; height: 27px; flex: none; display: grid; place-items: center; border: 1.5px solid var(--wandr-blue); color: var(--wandr-blue); font-size: 10px; font-weight: 700; }
 .place-glyph-origin { border-radius: 50%; }
 .place-glyph-destination { border-radius: 4px; }
 .field-caption { display: block; color: var(--muted); font-size: 11px; line-height: 1.15; }
@@ -63,10 +66,10 @@ a { color: inherit; }
 .swap-button { position: absolute; right: 7px; top: 50%; z-index: 1; width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 12px; background: #fff; transform: translateY(-50%); }
 .swap-button:disabled { color: #aaa; }
 .search-actions { display: flex; align-items: center; justify-content: space-between; }
-.location-button { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; color: #242424; font-weight: 600; }
+.location-button { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--wandr-navy); font-weight: 650; }
 .location-button:disabled { color: var(--muted); }
-.primary-button { min-height: 52px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; border: 1px solid #111; border-radius: 14px; background: #111; color: #fff; font-weight: 650; text-decoration: none; transition: transform .14s ease, background .14s ease; }
-.primary-button:hover:not(:disabled) { background: #292929; }
+.primary-button { min-height: 52px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; border: 1px solid var(--wandr-blue); border-radius: 14px; background: var(--wandr-blue); color: #fff; font-weight: 650; text-decoration: none; transition: transform .14s ease, background .14s ease; }
+.primary-button:hover:not(:disabled) { background: #1e49c5; }
 .primary-button:active:not(:disabled) { transform: scale(.985); }
 .primary-button:disabled { border-color: #bdbdbd; background: #bdbdbd; color: #4b4b4b; }
 .spinner { width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
@@ -87,7 +90,7 @@ a { color: inherit; }
 .option-list { display: flex; flex-direction: column; gap: 9px; }
 .option-card { width: 100%; display: block; padding: 13px; border: 1px solid var(--border); border-radius: 15px; background: #fff; color: var(--ink); text-align: left; cursor: pointer; }
 .option-card:hover { border-color: #aaa; }
-.option-card:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+.option-card:focus-visible { outline: 2px solid var(--wandr-blue); outline-offset: 2px; }
 .option-card-heading, .option-card-metrics, .option-fare, .option-time, .option-card-footnote { display: flex; align-items: center; }
 .option-card-heading { gap: 10px; }
 .provider-identity { min-width: 0; display: flex; align-items: center; gap: 10px; }
