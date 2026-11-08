@@ -182,8 +182,14 @@ export default function Home() {
             <button aria-pressed={screen.sort === "cheapest"} onClick={() => setSort("cheapest")}><Wallet size={16}/>Save money</button>
             <button aria-pressed={screen.sort === "fastest"} onClick={() => setSort("fastest")}><Clock3 size={16}/>Get there faster</button>
           </div>
-          <p className="estimates-note" role="note" aria-label="Prices and times are estimates, not live operator quotes or schedules.">Estimates</p>
-          <div className="trip-summary"><p><strong>{screen.data.origin.label}</strong><span> to </span><strong>{screen.data.destination.label}</strong></p><button type="button" className="text-button" onClick={() => backTo({ kind: "search" })}>Edit trip</button></div>
+          <div className="trip-summary" aria-label={`Trip from ${screen.data.origin.label} to ${screen.data.destination.label}`}>
+            <div className="trip-summary-route">
+              <strong className="trip-summary-endpoint" title={screen.data.origin.label} aria-label={screen.data.origin.label}>{screen.data.origin.label}</strong>
+              <span className="trip-summary-separator" aria-hidden="true">→</span>
+              <strong className="trip-summary-endpoint" title={screen.data.destination.label} aria-label={screen.data.destination.label}>{screen.data.destination.label}</strong>
+            </div>
+            <button type="button" className="text-button" onClick={() => backTo({ kind: "search" })}>Edit trip</button>
+          </div>
           {resultNotice && <p className="inline-status" role="status">{resultNotice}</p>}
         </div>
         <div className="option-list-scroll" role="region" aria-label="Transport options" tabIndex={0}>

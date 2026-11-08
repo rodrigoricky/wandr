@@ -92,6 +92,19 @@ async function captureMatrix(page: import("@playwright/test").Page, name: string
       });
       expect(ratio).toBeGreaterThan(0.54);
       expect(ratio).toBeLessThan(0.66);
+      const summary = await page.locator(".trip-summary").evaluate((element) => {
+        const endpoints = [...element.querySelectorAll<HTMLElement>(".trip-summary-endpoint")].map((item) => {
+          const bounds = item.getBoundingClientRect();
+          return { width: bounds.width, left: bounds.left, right: bounds.right, text: item.textContent, ariaLabel: item.getAttribute("aria-label") };
+        });
+        const separator = element.querySelector<HTMLElement>(".trip-summary-separator")?.getBoundingClientRect();
+        return { endpoints, separator: separator ? { width: separator.width, left: separator.left, right: separator.right } : null };
+      });
+      expect(summary.endpoints).toHaveLength(2);
+      expect(summary.endpoints.every((item) => item.width > 0 && item.left >= 0 && item.right <= width && item.text && item.ariaLabel === item.text)).toBe(true);
+      expect(summary.separator?.width).toBeGreaterThan(0);
+      await expect(page.getByRole("button", { name: "Edit trip" })).toBeVisible();
+      await expect(page.getByText("Estimates", { exact: true })).toHaveCount(0);
       if (name === "air-results" && width === 320 && height === 700) {
         await expect.poll(() => page.evaluate(() => {
           const map = document.querySelector(".route-map")?.getBoundingClientRect();
@@ -110,6 +123,54 @@ async function captureMatrix(page: import("@playwright/test").Page, name: string
     await page.screenshot({ path: `/tmp/wandr-ui-polish/${name}-${width}x${height}.png` });
   }
 }
+
+test("long and short trip endpoints stay independently bounded in the results summary", async ({ page }) => {
+  const places = [
+    { id: "fixture:short-origin", label: "Alpha Hub", addressLine: "Davao City", city: "Davao City", country: "Philippines", countryCode: "PH", coordinates: { lat: 7.072316, lon: 125.612838 } },
+    { id: "fixture:long-origin", label: "Ateneo de Davao University — Jacinto/Main Campus, Roxas Avenue Academic District", addressLine: "Davao City", city: "Davao City", country: "Philippines", countryCode: "PH", coordinates: { lat: 7.072316, lon: 125.612838 } },
+    { id: "fixture:short-destination", label: "Beta Hub", addressLine: "Davao City", city: "Davao City", country: "Philippines", countryCode: "PH", coordinates: { lat: 7.064, lon: 125.608 } },
+    { id: "fixture:long-destination", label: "Davao Doctors Hospital and Medical Center — Main Campus", addressLine: "Davao City", city: "Davao City", country: "Philippines", countryCode: "PH", coordinates: { lat: 7.064, lon: 125.608 } },
+  ];
+  const byQuery = new Map(places.map((place) => [place.label.toLowerCase(), place]));
+  const submitted: Array<{ origin: typeof places[number]; destination: typeof places[number] }> = [];
+  await page.route("**/v1/places/search**", async (route) => {
+    const query = new URL(route.request().url()).searchParams.get("q")?.toLowerCase() ?? "";
+    const place = places.find((candidate) => candidate.label.toLowerCase().includes(query)) ?? places[0];
+    await route.fulfill({ json: { places: [place] } });
+  });
+  await page.route("**/v1/trips/compare", async (route) => {
+    const request = route.request().postDataJSON() as { origin: typeof places[number]; destination: typeof places[number] };
+    submitted.push({ origin: request.origin, destination: request.destination });
+    await route.fulfill({ json: { ...localResponse, origin: request.origin, destination: request.destination } });
+  });
+
+  const cases = [[places[0], places[2]], [places[1], places[2]], [places[0], places[3]], [places[1], places[3]]] as const;
+  for (const [index, pair] of cases.entries()) {
+    await page.goto("/");
+    await page.getByRole("button", { name: /Choose starting point/ }).click();
+    const originSearch = page.getByRole("combobox", { name: "Starting point place search" });
+    await originSearch.fill(pair[0].label);
+    await page.getByRole("option", { name: new RegExp(pair[0].label) }).click();
+    await page.getByRole("button", { name: "Choose destination" }).click();
+    const destinationSearch = page.getByRole("combobox", { name: "Destination place search" });
+    await destinationSearch.fill(pair[1].label);
+    await page.getByRole("option", { name: new RegExp(pair[1].label) }).click();
+    await page.getByRole("button", { name: "Find routes" }).click();
+    await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
+    await page.setViewportSize({ width: 320, height: 568 });
+    const summary = page.locator(".trip-summary");
+    await expect(summary.locator(".trip-summary-endpoint")).toHaveCount(2);
+    const endpointMetrics = await summary.locator(".trip-summary-endpoint").evaluateAll((elements) => elements.map((element) => {
+      const bounds = element.getBoundingClientRect();
+      return { width: bounds.width, right: bounds.right, text: element.textContent, ariaLabel: element.getAttribute("aria-label") };
+    }));
+    expect(endpointMetrics.every((item) => item.width > 0 && item.right <= 320 && item.text && item.ariaLabel === item.text)).toBe(true);
+    await expect(summary.locator(".trip-summary-separator")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edit trip" })).toBeVisible();
+    await expect(page.getByText("Estimates", { exact: true })).toHaveCount(0);
+    expect(submitted[index]).toMatchObject({ origin: { id: pair[0].id, coordinates: pair[0].coordinates }, destination: { id: pair[1].id, coordinates: pair[1].coordinates } });
+  }
+});
 
 test("Search, local/air results and details fit the full viewport matrix", async ({ page }) => {
   test.setTimeout(120_000);
