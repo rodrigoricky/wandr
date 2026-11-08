@@ -53,7 +53,7 @@ The full end-to-end run covers production basemap pixels, sprite failure, fallba
 
 ## Deployment status
 
-- Feature branch `codex/wandr-blue-ui-v2-20261108` was pushed, then fast-forwarded to `main` and pushed without force. Final `main` is `2c7de2c`.
+- Feature branch `codex/wandr-blue-ui-v2-20261108` was pushed, then fast-forwarded to `main` and pushed without force. Final `main` is `e7e7892`; the deployed application code is `2c7de2c` and the final commit is documentation-only.
 - Preview Pages deployment: `ba1f34ee-3364-4760-ad04-7bf39ca9dfef`, source `ab7e008`, alias [`codex-wandr-full-correction-8jjh.wandr-ld1.pages.dev`](https://codex-wandr-full-correction-8jjh.wandr-ld1.pages.dev/).
 - Preview Worker version: `5577c1d0-b0e1-45c0-8065-1a53e0a09fb9`, [`wandr-api-preview.rickyrodrigo-ph.workers.dev`](https://wandr-api-preview.rickyrodrigo-ph.workers.dev/v1/health).
 - Production Pages deployment: `54c37e0b-a27e-4d22-912d-58898d2e0b05`, source `2c7de2c`, custom domain [`wandr.ricky.network`](https://wandr.ricky.network/).
