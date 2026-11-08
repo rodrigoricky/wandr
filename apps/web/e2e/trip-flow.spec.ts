@@ -65,15 +65,17 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
     await page.screenshot({ path: `/tmp/wandr-demo-results-${width}x${height}.png` });
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("button", { name: /Est\. ₱/ }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /₱/ }).first()).toBeVisible();
   await expect(page.getByText("Fare comparison unavailable.")).toHaveCount(0);
   await page.getByRole("button", { name: "Get there faster" }).click();
   await expect(page.getByRole("button", { name: "Get there faster" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".option-badge")).toHaveCount(1);
   await page.getByRole("button", { name: /Taxi estimate/ }).click();
   await expect(page.getByRole("heading", { name: "Journey details" })).toBeVisible();
-  await expect(page.getByText(/Est\. ₱80–₱100/)).toBeVisible();
-  await expect(page.getByText("Road geometry is a distance reference only", { exact: true })).toBeVisible();
+  await expect(page.getByText("₱80–₱100", { exact: true })).toBeVisible();
+  await expect(page.locator(".detail-metrics > div")).toHaveCount(3);
+  await expect(page.locator(".journey-breakdown > li")).toHaveCount(2);
+  await expect(page.getByText("Source and estimate limits", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/Head northeast on the mapped road/)).toHaveCount(0);
   await page.getByRole("button", { name: "Back to comparison" }).click();
   await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
@@ -154,7 +156,7 @@ test("global named places remain selectable and show a generic international air
   await expect(page.getByRole("option")).toContainText(/Tokyo Tower.*Minato City, Tokyo, Japan/);
   await destinationSearch.press("Enter");
   await page.getByRole("button", { name: "Find routes" }).click();
-  await expect(page.getByRole("button", { name: /Air journey estimate/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Air journey/ })).toBeVisible();
   await expect(page.locator(".route-map")).toHaveAttribute("data-route-kind", "air");
   await expect(page.locator(".map-marker-airport")).toHaveCount(2);
   await expect(page.locator(".map-aircraft-marker")).toBeVisible();
@@ -176,11 +178,12 @@ test("global named places remain selectable and show a generic international air
   }), { timeout: 10_000 }).toContain('"fits":true');
   await page.screenshot({ path: "/tmp/wandr-demo-air-320x700.png" });
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.getByRole("button", { name: /Air journey estimate/ }).click();
+  await page.getByRole("button", { name: /Air journey/ }).click();
   await expect(page.getByRole("heading", { name: "Journey details" })).toBeVisible();
   const detailRegion = page.getByRole("region", { name: "Route details" });
   await expect(detailRegion.getByText("CDG", { exact: true })).toBeVisible();
   await expect(detailRegion.getByText("HND", { exact: true })).toBeVisible();
+  await expect(detailRegion.locator(".journey-breakdown > li")).toHaveCount(2);
   await page.getByRole("button", { name: "Back to comparison" }).click();
   await page.getByRole("button", { name: "Edit trip" }).click();
   await expect(page.getByRole("button", { name: /Choose starting point, Eiffel Tower/ })).toBeVisible();

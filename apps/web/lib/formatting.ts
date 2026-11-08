@@ -1,19 +1,36 @@
-import type { TransportOption } from "@wandr/shared";
+import type { FareEstimate, TransportOption } from "@wandr/shared";
 
 export function formatDuration(seconds: number | null): string {
-  if (seconds === null) return "Time unavailable";
+  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return "—";
   const minutes = Math.max(1, Math.round(seconds / 60));
-  if (minutes < 60) return `About ${minutes} min`;
+  if (minutes < 60) return `~${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
-  return remainder ? `About ${hours} hr ${remainder} min` : `About ${hours} hr`;
+  return remainder ? `~${hours} hr ${remainder} min` : `~${hours} hr`;
 }
 export function formatDistance(meters: number | null): string {
-  if (meters === null) return "Distance unavailable";
+  if (meters === null || !Number.isFinite(meters) || meters < 0) return "—";
   return meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;
 }
-export function fareLabel(option: TransportOption): string {
-  if (option.fare.min === null || option.fare.max === null) return "Fare unavailable";
-  if (option.fare.min === option.fare.max) return option.fare.min === 0 ? "₱0 fare" : `${option.fare.status === "estimated" ? "Est. " : ""}₱${option.fare.min}`;
-  return `${option.fare.status === "estimated" ? "Est. " : ""}₱${option.fare.min}–₱${option.fare.max}`;
+function peso(value: number): string {
+  return new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 }).format(value);
+}
+function compactPeso(value: number): string {
+  const thousands = value / 1_000;
+  return `${new Intl.NumberFormat("en-PH", { maximumFractionDigits: 1, minimumFractionDigits: 0 }).format(thousands)}k`;
+}
+function amountLabel(min: number, max: number, compact: boolean): string {
+  const format = compact ? compactPeso : peso;
+  const left = `₱${format(min)}`;
+  return min === max ? left : `${left}–₱${format(max)}`;
+}
+export function fullFareLabel(option: Pick<TransportOption, "fare"> | FareEstimate): string {
+  const { min, max } = "fare" in option ? option.fare : option;
+  if (min === null || max === null || !Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max < min) return "—";
+  return amountLabel(min, max, false);
+}
+export function fareLabel(option: Pick<TransportOption, "fare"> | FareEstimate): string {
+  const { min, max } = "fare" in option ? option.fare : option;
+  if (min === null || max === null || !Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max < min) return "—";
+  return amountLabel(min, max, max >= 10_000);
 }

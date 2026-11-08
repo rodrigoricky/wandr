@@ -76,6 +76,7 @@ a { color: inherit; }
 .mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid #dedede; border-radius: 14px; background: #f2f2f2; }
 .mode-toggle button { min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 4px 6px; border: 0; border-radius: 10px; background: transparent; color: #555; font-size: 13px; font-weight: 650; }
 .mode-toggle button[aria-pressed="true"] { background: #fff; color: #111; box-shadow: 0 1px 2px #0001; }
+.estimates-note { margin: -7px 3px; color: var(--muted); font-size: 10px; line-height: 1.2; }
 .trip-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .trip-summary p { min-width: 0; overflow: hidden; color: #555; font-size: 12px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .trip-summary strong { color: #222; font-weight: 600; }

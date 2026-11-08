@@ -113,12 +113,12 @@ export function sortTransportOptions(options: readonly TransportOption[], sort: 
 }
 
 export const providerNames: Record<ProviderId, string> = {
-  walk: "Walking route",
-  jeepney: "Jeepney estimate",
-  generic_taxi: "Taxi estimate",
-  generic_motorcycle: "Motorcycle estimate",
-  generic_car: "Car ride estimate",
-  philippine_airlines: "Philippine Airlines · reference estimate",
-  cebu_pacific: "Cebu Pacific · reference estimate",
-  generic_air: "Air journey estimate",
+  walk: "Walk",
+  jeepney: "Jeepney",
+  generic_taxi: "Taxi",
+  generic_motorcycle: "Motorcycle",
+  generic_car: "Car",
+  philippine_airlines: "Philippine Airlines",
+  cebu_pacific: "Cebu Pacific",
+  generic_air: "Air journey",
 };

@@ -65,7 +65,7 @@ function airlineOption(providerId: ProviderId, provider: "philippine_airlines" |
   const airlineLabel = provider === "philippine_airlines" ? "Philippine Airlines" : provider === "cebu_pacific" ? "Cebu Pacific" : "Air journey";
   return {
     id: `air-${provider}`,
-    title: provider === "generic_air" ? "Air journey estimate" : `${airlineLabel} reference`,
+    title: airlineLabel,
     mode: "flight",
     providerId,
     legs: [],

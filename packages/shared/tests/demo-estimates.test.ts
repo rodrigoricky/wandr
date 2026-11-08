@@ -88,8 +88,9 @@ describe("deterministic demo estimates", () => {
     expect(isOptionRankable(unknown, "cheapest")).toBe(false);
   });
 
-  it("has a text identity for every shipped option provider without pretending to ship corporate marks", () => {
+  it("has concise text identities for every supported provider", () => {
     expect(Object.keys(providerNames).sort()).toEqual(["cebu_pacific", "generic_air", "generic_car", "generic_motorcycle", "generic_taxi", "jeepney", "philippine_airlines", "walk"].sort());
-    expect(providerNames.philippine_airlines).toContain("reference estimate");
+    expect(providerNames.philippine_airlines).toBe("Philippine Airlines");
+    expect(providerNames.cebu_pacific).toBe("Cebu Pacific");
   });
 });
