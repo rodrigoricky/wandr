@@ -1,81 +1,77 @@
 # Test and acceptance report
 
-Last checked: 2026-11-08. This report separates deterministic tests from live Geoapify/map checks and deployment observations. Browser fixtures are not counted as provider integration passes.
+Updated 2026-11-08. This report distinguishes deterministic tests, live-provider checks, browser checks, and deployment evidence. Fixture responses are not counted as provider integration passes.
 
-## Repository baseline
+## Code and deployment identity
 
-- Starting branch `main` matched `origin/main` at `4d520936fb96a561a570451fab4b87b1c6c82148`. Work was performed on `codex/wandr-full-correction-20261108`; the unrelated root `a.md` remains untracked and untouched.
-- Production map screenshot: `/tmp/wandr-production-map-mobile.png`. Automated screenshots: `/tmp/wandr-map-320.png`, `/tmp/wandr-map-375.png`, `/tmp/wandr-map-390.png`, `/tmp/wandr-map-430.png`, `/tmp/wandr-map-1280.png`, and `/tmp/wandr-map-fallback-390.png`. The primary and fallback screenshots use live public map resources.
-- `npm ci`: PASS during initial audit; package manifests and lockfile were unchanged by this correction.
+- The audited starting point was `main` / `origin/main` at `58609b1` (`docs: clarify deployment evidence locations`). Implementation was committed as `1eb7f94c5970db20baff9d3eb31b5a95e6953c43` and fast-forwarded to and pushed on `main`.
+- Preview Pages: [codex-wandr-full-correction-k8pn.wandr-ld1.pages.dev](https://codex-wandr-full-correction-k8pn.wandr-ld1.pages.dev), deployment `c460901a-ceac-46db-a22f-55bac08cfa3f`, branch `codex-wandr-full-correction-oiad`, source `1eb7f94`.
+- Preview API: `https://wandr-api-preview.rickyrodrigo-ph.workers.dev`, Worker version `07e3d082-ef0c-4c9c-9979-6f3eaffffb06`.
+- Production Pages: [wandr.ricky.network](https://wandr.ricky.network), deployment `aae52918-c498-4a7d-a682-ee8ceb17734e`, branch `main`, source `1eb7f94`.
+- Production API: [api.wandr.ricky.network](https://api.wandr.ricky.network/v1/health), Worker version `a70f5298-da76-46a7-8199-bfd9ddf5ea64`.
+- The unrelated root `a.md` was already untracked, was not modified, and was excluded from commits.
 
-## Latest verification
+## Verification results
 
-- `npm run check`: PASS after implementation (strict TypeScript in all workspaces, ESLint, 31 unit tests, local static Next export).
-- `npm run test:e2e`: PASS, 9 browser tests. This includes live map vector-tile responses and nonuniform WebGL pixels, responsive resizing, nonfatal sprite failure, simulated primary style outage followed by actual OSM PNG tiles and online recovery, actual WebGL context loss/restoration, single map instance after reload, search/selection/sort/details/back, Davao alias merge, global unsupported scope and opt-in GPS denial. Widths 320, 375, 390, 430 and 1280 were checked in the map test; the trip-flow suite additionally checks 360, 414, 600, 768, 1024, 1440, 844×390 and 932×430.
-- `NEXT_PUBLIC_API_BASE_URL=https://wandr-api-preview.rickyrodrigo-ph.workers.dev npm run build:web`: PASS. `NEXT_PUBLIC_API_BASE_URL=https://api.wandr.ricky.network npm run build:web`: PASS from verified `main` at `abd616a`; production export is deployed to the Pages production branch.
-- `npm audit`: PASS, zero known vulnerabilities.
-- `npm run deploy:dry-run -w @wandr/api`: PASS (Wrangler 4.158.0; 26.87 KiB upload, 7.46 KiB gzip; production rate-limit binding present). The dry run itself did not deploy.
-- `npm run build:web` with no API URL: EXPECTED BLOCK (exit 1). The production static-build gate prevents output without a valid HTTPS Worker URL. `npm run build:web:local` explicitly supplies the local Worker URL for local build checks.
-- `git diff --check`: PASS.
-- Local Worker HTTP smoke: health returned `configured.geoapify=false` and `providersProbed=false`; global place search returned `503 CONFIGURATION_MISSING`; a cross-region Eiffel Tower→Tokyo Tower compare returned `scope: unsupported`, no route options, and no route-provider request; CORS granted `http://localhost:3000` and withheld `Access-Control-Allow-Origin` from `https://untrusted.example`.
-- `git diff --check`: PASS. A tracked-source/static-output scan found no credential value; the only key-shaped match was the documented `.dev.vars.example` placeholder. The real key remains in Cloudflare Worker secrets.
-- Local browser map: OpenFreeMap Positron tiles render with OpenStreetMap/OpenFreeMap and Geoapify attribution. Most Playwright trip-flow tests intercept API responses; the map resilience tests use actual OpenFreeMap/OSM resources. Provider integration is recorded separately below.
-
-## External provider and deployment checks
-
-- The Geoapify key is configured only as preview/production Worker secrets. It was not emitted to the client bundle, tracked source, or build environment.
-- Live provider searches returned Davao mall, college, university, hospital, airport and City Hall results and Paris, Tokyo and Sydney landmarks. Preview's current Worker returned Francisco Bangoy International Airport as the top exact-name match (HTTP 200; 1.005 s in this single request). The production search benchmark performed before this change had p50 1.308 s and p95 4.559 s across ten serial requests, with one slow college result; this is a small sample, not a service-level guarantee. Name-first ranking addresses the inspected weak global match ordering but does not guarantee authoritative POI identity or complete disambiguation.
-- Preview: `https://codex-wandr-full-correction-oiad.wandr-ld1.pages.dev`; API: `https://wandr-api-preview.rickyrodrigo-ph.workers.dev`; latest preview Pages deployment `6a02cbf0-faf8-4067-b9de-ee9e30972e35` (source `abd616a`), preview Worker version `16034516-dfc6-4beb-8b9c-b1ba0107a90f`. The exact preview alias is in the Worker CORS allowlist. Real Davao place selection and compare produce the truthful road-time-only results with no map errors; health reports configured provider. The direct deployment UUID URL and an unrelated origin correctly receive no CORS permission.
-- Production: site `https://wandr.ricky.network`; API `https://api.wandr.ricky.network`. Pages is deployed on branch `main`; the Worker is deployed to the production custom domain. Health returns HTTP 200 and confirms the secret is configured without probing the provider. Two live searches returned HTTP 200; the actual `POST /v1/trips/compare` returned HTTP 200 and a Geoapify `LineString` road route (single combined check 1.786 s). The walking path exceeded its configured short-walk limit and only the explicitly unverified driving road-time baseline was returned. In the deployed production browser, the map reported ready with OpenFreeMap, the Davao result flow worked, and there were no console/page errors or MapLibre camera-fit warning. The old basemap failure itself remained unreproduced, so no failed historical resource URL/status is asserted.
-- Production CORS preflight grants only `https://wandr.ricky.network`; a preflight from `https://untrusted.example` omits `Access-Control-Allow-Origin`. Production provider and map requests use HTTPS. Browser cancellation logs from movement-triggered tile/search requests were request aborts, not upstream errors; the route and map remained usable.
-- Physical iOS/Android touch, GPS grant and timeout were not tested. Phase 4 remains blocked: there is no documented DIBS integration API/data-reuse permission, validated ordered passenger-stop/direction dataset, or applicable current fare matrix supporting two repeatable journeys.
+- `npm run check`: PASS. Strict TypeScript and ESLint passed in shared, API, and web workspaces; 53 unit tests passed (14 shared, 35 API, 4 web); local static Next export passed.
+- `npm run test:e2e`: PASS, 10 Playwright tests. Coverage includes real basemap pixel rendering, resize, style fallback and recovery, WebGL restoration and map reinitialization, search/selection/sort/details/back, GPS denial, reviewed Davao alias merging, global airport preview and no-airport recovery, and 13 responsive viewports (320×568 through 1440×900, including short landscape). The compact international-air fit test also passed three consecutive fresh runs.
+- `npm audit`: PASS, zero known vulnerabilities. `git diff --check`: PASS. Airport-index generation was rerun against its pinned OurAirports source; 3,245 records and the documented source hash were stable.
+- Preview and production Wrangler dry-runs passed. The static production build gate requires an HTTPS Worker URL; preview and production builds passed with their respective API URLs.
+- Geoapify is held only as the preview and production Worker secret. Both health endpoints reported `configured.geoapify=true` and `providersProbed=false`. The key was not put in the browser build or repository.
+- Live preview and production Geoapify searches resolved Davao City Hall, SM Lanang Premier, and Tokyo Tower. Both API deployments returned HTTP 200 for a Davao local comparison with real Geoapify `LineString` route geometry and for Davao→Tokyo international classification with DVO→HND airport candidates and clearly marked demo-model carrier reference estimates. Responses do not claim schedules, service, or bookable fares.
+- Preview CORS granted only its active Pages alias (plus localhost for development) and omitted `Access-Control-Allow-Origin` for `https://untrusted.example`. Production granted `https://wandr.ricky.network` and omitted it for the untrusted origin.
+- The production site and health endpoint returned HTTP 200. A real production browser session performed Geoapify place searches and Davao→Tokyo comparison at 320×700. The map was ready, showed the air corridor and both airport markers; both markers fit above the results sheet, outside attribution/navigation controls; two options rendered; no browser page errors or console errors occurred. OpenFreeMap emitted nonfatal style-value warnings; viewport-camera movement also aborted superseded tile requests. Neither prevented map use.
+- The production deploy is associated with implementation commit `1eb7f94`. A subsequent evidence-only documentation commit is pushed to `main`; it does not change the deployed app or Worker code.
 
 ## A01–A40 acceptance matrix
 
-| ID | Status | Evidence / remaining requirement |
+| ID | Status | Evidence / limitation |
 |---|---|---|
-| A01 | PASS | `npm ci` passed from the lockfile in baseline audit; dependencies were not changed. |
-| A02 | PASS | Latest `npm run check` passes typecheck, lint, unit suite, and local static export. |
-| A03 | PASS | Geoapify key is Worker-only; production static build refuses missing/non-HTTPS API URL. Static bundle scan found no key assignment or API-key query value; tracked source has only the `.dev.vars.example` placeholder. |
-| A04 | PARTIAL | Live provider route returned LineString geometry and rendered in the production browser journey. MultiLineString normalization is fixture-tested; no live MultiLineString response was observed. |
-| A05 | PASS | LineString/MultiLineString normalization and malformed/out-of-bounds geometry rejection covered by unit tests. |
-| A06 | PASS | Production Geoapify Davao road route was obtained; the walking route exceeded the short-walk limit and was correctly omitted. |
-| A07 | PASS | Production HTTPS Pages app and map loaded; map attribution was visible in the browser journey. |
-| A08 | PASS | Geoapify, OpenFreeMap, OpenMapTiles, and OpenStreetMap attribution is visible in screenshots and Playwright at the required widths. |
-| A09 | PARTIAL | Fixture route screenshot shows A/B markers and matching test geometry; real selected-provider coordinates and route alignment remain unverified. |
-| A10 | PASS | Playwright confirms no GPS request on initial load and exactly one after explicit button action. |
-| A11 | PARTIAL | Permission denial preserves manual search; physical browser timeout behavior is not verified. |
-| A12 | UNVERIFIED | No device-level GPS grant/reverse-geocode test with a live key. |
-| A13 | PASS | Production live search returned Davao and Paris-area Geoapify results. |
-| A14 | PASS | Production queries returned Davao mall, hospital, school, university, and airport records with real provider coordinates. |
-| A15 | PARTIAL | Fixture verifies named result plus secondary address and keyboard selection; same-name ambiguity has no live-provider evidence. |
-| A16 | PARTIAL | 180 ms debounce, bounded query/bias cache, abort, stale-result clearing, arrow/Enter, and touch selection are implemented; live provider quota/race behavior is not stress-tested. |
-| A17 | PASS | Unit/API and browser fixture checks preserve global selections and return an honest unsupported response without routing. |
-| A18 | PASS | Validation tests cover malformed, out-of-range, incomplete bias, and same-point journeys before provider work. |
-| A19 | PASS | Reviewed final grayscale search/results screenshots; no colored accent, visible brand header, or marketing footer. |
-| A20 | PASS | Playwright confirms the centered desktop phone frame is capped at 430 px and mobile uses full viewport. |
-| A21 | PASS | No horizontal document overflow at all 11 required widths plus two short landscape sizes. |
-| A22 | PARTIAL | Keyboard search selection and reduced-motion CSS exist; full focus/Escape/reduced-motion browser matrix not executed. |
-| A23 | PARTIAL | Loading/cancel/retry, retained locations, and visible configuration errors are implemented; all provider/offline/timeout states are not end-to-end exercised. |
-| A24 | PASS | Result sort is local; test confirms one compare request through sort/details/back; unrankable road time receives no winner. |
-| A25 | PARTIAL | Walking total time/distance are provider-derived; drive is explicitly road-time baseline with unknown fare. No verified passenger journey data exists. |
-| A26 | BLOCKED | No two source-backed feasible Davao passenger journeys with stop/direction evidence. |
-| A27 | BLOCKED | No accepted current source/fare matrix record is wired into the app. |
-| A28 | PASS | Unknown drive fare is rendered unavailable and cannot receive a cheapest badge. |
-| A29 | PASS | API tests enforce the configured 1.5 km and 25 minute maximum for default walking comparison. |
-| A30 | PARTIAL | Provider step normalization is fixture-tested; no live step-by-step instruction verification was performed. Live route geometry is verified separately. |
-| A31 | PARTIAL | Current detail view shows a concise provider-sourced route breakdown and no booking claim; external turn-by-turn handoff is not provided. |
-| A32 | PASS for tested lifecycle | One map instance, resize observer, styles/layers restoration, WebGL context restoration and repeated reload checks passed; long-session memory/leak stress remains unmeasured. |
-| A33 | PASS | Validation/CORS tests and local HTTP smoke reject invalid inputs and omit CORS permission for an untrusted origin. |
-| A34 | PASS | Unit tests cover quota/timeout/abort; Worker rate-limit binding test returns 429. Live upstream quota behavior remains unverified. |
-| A35 | BLOCKED | No route/fare records were accepted; source, stop order, and fare-date integrity cannot be evaluated until authorized data is supplied. |
-| A36 | PASS | Preview Pages and Worker deployed; exact active preview alias CORS configured; live Geoapify Davao place/route comparison and browser route flow passed. |
-| A37 | PASS | `wandr.ricky.network` Pages custom domain is active, the CNAME targets the Wandr Pages project, public DNS returns Cloudflare, and HTTPS returns 200. This machine's default resolver retained a negative cache during final checks. |
-| A38 | PASS | Production Pages and API Worker deployed from `main`; custom domains and exact production CORS are active; live provider search, route and browser flow passed over HTTPS with no camera-fit warning. |
-| A39 | BLOCKED | No production passenger-route/fare comparison; phase 4 source gate is blocked. |
-| A40 | UNVERIFIED | No physical Android or iOS browser test. |
+| A01 | PASS | `npm ci` passed during the initial audit; dependency manifests and lockfile were not changed. |
+| A02 | PASS | Current `npm run check` passed typecheck, lint, all 53 unit tests, and static export. |
+| A03 | PASS | Geoapify key is Worker-only; deploy builds require an HTTPS API URL; no key is included in static output. |
+| A04 | PARTIAL | Live Geoapify route geometry was a `LineString`; `MultiLineString` normalization is fixture-tested but no live response of that type was observed. |
+| A05 | PASS | Geometry normalization and malformed/out-of-bounds rejection are unit-tested. |
+| A06 | PASS | Live local route requests returned real Geoapify road geometry/distance/time inputs; walking remains subject to the short-walk threshold. |
+| A07 | PASS | Production HTTPS app and OpenFreeMap map loaded in the production browser. |
+| A08 | PASS | Geoapify, OpenFreeMap, OpenMapTiles, and OpenStreetMap attribution remained visible in automated and deployed browser checks. |
+| A09 | PARTIAL | Airport and route map overlays render; a selected local provider road path is not evidence of passenger-route alignment. |
+| A10 | PASS | Playwright confirms GPS is not requested on load and is requested only after explicit user action. |
+| A11 | PARTIAL | Simulated permission denial preserves manual search; a physical GPS timeout test was not run. |
+| A12 | UNVERIFIED | No physical-device GPS grant and live reverse-geocoding test was performed. |
+| A13 | PASS | Live preview and production Geoapify searches returned Davao and Tokyo places. |
+| A14 | PASS | Live provider searches returned requested Davao civic/commercial places and international place records with provider coordinates. |
+| A15 | PARTIAL | Keyboard selection and secondary address are tested; ambiguous same-name live-provider cases are not exhaustively validated. |
+| A16 | PARTIAL | Debounce, abort/stale-result handling, bounded cache, and keyboard selection are implemented and fixture-tested; provider quota/race load was not stress-tested. |
+| A17 | PASS | Local, domestic-long-distance, and international classifications produce scoped responses; real Davao→Tokyo returns a generic airport corridor with disclosed model references. |
+| A18 | PASS | Input validation rejects invalid, incomplete, and identical place selections before provider work. |
+| A19 | PASS | Reviewed grayscale interface preserves the phone-first flow without unapproved logos or added marketing sections. |
+| A20 | PASS | Desktop shell stays at or below 430px; mobile fills the viewport. |
+| A21 | PASS | Automated no-overflow checks passed at 13 mobile, tablet, desktop, and landscape viewport sizes. |
+| A22 | PARTIAL | Keyboard search selection and reduced-motion styling exist; full focus/Escape/device accessibility matrix was not run. |
+| A23 | PARTIAL | Loading, cancel, retry, retained place selections, and visible API errors exist; every offline/provider-timeout state was not exercised end to end. |
+| A24 | PASS | Sorting is local and deterministic; route results do not make another compare request when sorted or opened. Unknown values cannot win a badge. |
+| A25 | PARTIAL | Walking and road inputs are provider-derived; fares and air durations are disclosed estimates. No verified passenger journey or ride-hailing quote is available. |
+| A26 | BLOCKED | No two source-backed Davao passenger journeys with stop order and direction were available. |
+| A27 | BLOCKED | No accepted, current route-linked fare matrix is integrated. |
+| A28 | PASS | Unknown fare/time values are displayed as unavailable and cannot be ranked as cheapest/fastest. |
+| A29 | PASS | Unit/API tests enforce configured short-walk distance and duration limits. |
+| A30 | PARTIAL | Provider step normalization is fixture-tested; live turn-by-turn steps were not independently verified. |
+| A31 | PARTIAL | Details disclose route references and estimates and do not claim booking; no external turn-by-turn handoff exists. |
+| A32 | PASS for exercised lifecycle | One-map lifecycle, resize, style recovery, WebGL restoration, and reload checks passed; long-duration leak/memory testing was not performed. |
+| A33 | PASS | Validation tests and live CORS checks accept the configured site and reject an unrelated origin. |
+| A34 | PASS | Quota/timeout/abort cases and Worker rate limiting are unit-tested; live upstream quota exhaustion was not induced. |
+| A35 | BLOCKED | Authorized route/stop records and a traceable linked fare matrix are still absent; route and fare source integrity cannot be evaluated without them. |
+| A36 | PASS | Preview Pages and Worker are deployed from the implementation commit; real preview search/compare and browser route passed. |
+| A37 | PASS | Production custom domain and API return HTTPS 200; live production CORS is restricted to the site origin. |
+| A38 | PASS | Production Pages and Worker are deployed from `main` commit `1eb7f94`; live search, route comparison, map, and 320×700 browser flow passed. |
+| A39 | BLOCKED | No production passenger-route/fare comparison is possible until A26/A27/A35 sources are supplied and approved. |
+| A40 | UNVERIFIED | No physical iOS or Android browser/device test was performed. |
 
-## Remaining unresolved inputs
+## Remaining limits
 
-1. Obtain current traceable Davao route/stop/direction records and applicable LTFRB fare documents for two repeatable passenger journeys. Until then, Wandr must remain a walking/road-estimate prototype rather than a public-transit/fare comparison product.
-2. Run physical Android/iOS checks for touch, GPS grant, timeout, and keyboard behavior. See [DATA_SOURCES.md](./DATA_SOURCES.md) for the transport-source gap and [README.md](../README.md) for deployment topology.
+1. Wandr is a scoped transport-estimate demo, not a verified public-transit, ride-hailing, or flight-booking comparison service. There is no authorized/live Grab, Maxim, Green GSM, or airline quote/schedule integration; air references are not fare availability.
+2. No two repeatable Davao passenger journeys with stop/direction evidence and an applicable current fare source are available. Phase 4 passenger-transit comparison remains blocked pending approved source data and reuse permission.
+3. Physical Android/iOS interaction, GPS grant/timeout, and device-network behavior remain unverified.
+
+See [DATA_SOURCES.md](./DATA_SOURCES.md), [ARCHITECTURE.md](./ARCHITECTURE.md), [BRAND_ASSETS.md](./BRAND_ASSETS.md), and [README.md](../README.md) for implementation and source boundaries.
