@@ -24,6 +24,6 @@ Place search received name-first provider ranking, a bounded 60-second query/bia
 - Only a provider-routed short walk within 1.5 km and 25 minutes can qualify as an actual comparison option. A Geoapify driving route is labeled as a road-time baseline, has unknown fare/service availability, and cannot win fastest/cheapest passenger ranking.
 - The app does not claim a bus, jeepney, taxi, tricycle, ride-hail, flight or booking service. Unknown fares are unavailable, not estimated.
 - The Geoapify credential is kept in the preview/production Worker secret stores; no client bundle, static-build input, tracked source or committed environment file contains it.
-- Production is `wandr.ricky.network` with API `api.wandr.ricky.network`. Preview is `codex-wandr-full-correction-oiad.wandr-ld1.pages.dev` with API `wandr-api-preview.rickyrodrigo-ph.workers.dev`. Current deployment/version identifiers and live responses are recorded in [TEST_REPORT.md](./TEST_REPORT.md) and the handoff.
+- Production is `wandr.ricky.network` with API `api.wandr.ricky.network`. Preview is `codex-wandr-full-correction-oiad.wandr-ld1.pages.dev` with API `wandr-api-preview.rickyrodrigo-ph.workers.dev`. Preview deployment identifiers and live integration results are recorded in [TEST_REPORT.md](./TEST_REPORT.md); final production deployment identifiers are included in the release handoff.
 
 See [the evidence-based test report](./TEST_REPORT.md) and [the data-source limits](./DATA_SOURCES.md).
