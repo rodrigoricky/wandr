@@ -48,7 +48,7 @@ Updated 2026-11-09. This report records the ordered implementation, verification
 ## Merge and deployment
 
 - Feature branch `codex/wandr-blue-ui-v2-1-20261109` was pushed, then fast-forwarded into `main` without force-pushing.
-- Final `main` and `origin/main`: `6e9b180`.
+- Final `main` and `origin/main`: `e40d1464cf5fce02056591824f40289111b8bf3f`.
 - Production API Worker deployed with Wrangler v4.158.0 under Node 22.22.3:
   - Worker: `wandr-api-production`
   - Version: `34ddded0-ec05-4e5d-aafa-7aef1e8e6efe`
@@ -57,7 +57,7 @@ Updated 2026-11-09. This report records the ordered implementation, verification
   - Deployment ID: `54d3c125-674a-45aa-bfed-58fa3f340d46`
   - Deployment URL: `https://54d3c125.wandr-ld1.pages.dev`
   - Custom domain: `https://wandr.ricky.network/`
-- The Pages deployment source is app commit `6e9b180`; final `main` commit `e41826f` adds the evidence report plus the explicit recovery no-replay regression assertion.
+- The Pages deployment source is app commit `6e9b180`; later `main` commits add only tests and evidence documentation, with no app bundle changes.
 
 ## Real production checks
 
