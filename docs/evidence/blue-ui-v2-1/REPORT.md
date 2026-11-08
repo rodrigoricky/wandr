@@ -48,7 +48,7 @@ Updated 2026-11-09. This report records the ordered implementation, verification
 ## Merge and deployment
 
 - Feature branch `codex/wandr-blue-ui-v2-1-20261109` was pushed, then fast-forwarded into `main` without force-pushing.
-- Final `main` and `origin/main`: `e40d1464cf5fce02056591824f40289111b8bf3f`.
+- The correction commits are present on pushed `main`; the deployed application bundle is sourced from app commit `6e9b180`.
 - Production API Worker deployed with Wrangler v4.158.0 under Node 22.22.3:
   - Worker: `wandr-api-production`
   - Version: `34ddded0-ec05-4e5d-aafa-7aef1e8e6efe`
