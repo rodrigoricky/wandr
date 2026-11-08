@@ -80,7 +80,7 @@ See [DATA_SOURCES.md](./DATA_SOURCES.md), [ARCHITECTURE.md](./ARCHITECTURE.md), 
 
 This follow-up supersedes the older release IDs and test counts above for current `main` and the current production deployment. The follow-up began from `190f898d2191911659d94f31d8c04ec44f9ed06a`, applied the five correction phases sequentially, and pushed app/API code SHA `bd423c3cfdd43268e5f3b35d192a03126172fb14` plus test-only commits `e7e799ec2ee95571cdc83058ec1ac1dd7c2b8b22` (browser Back) and `61f8d069ce0968941964a1a8b00254118754f799` (duplicate campus destination) to current `main`.
 
-- Production Pages: deployment `b9b728df-ed11-4bca-8651-d90496eca21c`, branch `main`, source `bd423c3`, live at [wandr.ricky.network](https://wandr.ricky.network/).
+- Production Pages: deployment `ba6c9f45-8f0b-4dec-9582-ab327fffb3b8`, branch `main`, source `40ac1d5`, live at [wandr.ricky.network](https://wandr.ricky.network/).
 - Production Worker: version `f2db4893-ae25-40d6-bd0b-4274ce1abf28`, custom domain [api.wandr.ricky.network](https://api.wandr.ricky.network/v1/health); health returned 200 and `configured.geoapify=true` without exposing the key.
 - Preview Pages: deployment `f2b08d06-84bc-4245-8200-b8c2bb26d289`, branch `codex-wandr-full-correction-oiad`; preview Worker version `750c6228-0f20-43f6-b67c-b3cc5bf71d15`.
 - `npm run check`: PASS, strict TypeScript, ESLint, 55 unit tests (15 shared, 36 API, 4 web), and Next static export. Production build with the production HTTPS API URL also passed.
