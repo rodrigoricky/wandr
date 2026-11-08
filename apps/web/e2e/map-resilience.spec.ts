@@ -155,6 +155,7 @@ test("a confirmed primary-style outage falls back to OSM raster and recovers to 
   const map = page.locator('.route-map[data-map-provider="openstreetmap"]');
   await expect(map).toHaveAttribute("data-map-ready", "true", { timeout: 30_000 });
   await expect(map).toHaveAttribute("data-map-theme", "none");
+  await expect(page.locator(".map-loading-overlay")).toHaveCount(0);
   expect(primaryStyleStatuses).toContain(503);
   await expect(page.getByRole("link", { name: /OpenStreetMap/ })).toBeVisible();
   await expect.poll(() => fallbackTileStatuses.includes(200), { timeout: 20_000 }).toBe(true);
@@ -165,6 +166,7 @@ test("a confirmed primary-style outage falls back to OSM raster and recovers to 
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(page.locator('.route-map[data-map-provider="openfreemap"]')).toHaveAttribute("data-map-ready", "true", { timeout: 25_000 });
   await expect(page.locator('.route-map[data-map-provider="openfreemap"]')).toHaveAttribute("data-map-theme", "wandr-blue");
+  await expect(page.locator(".map-loading-overlay")).toHaveCount(0);
   expect(primaryStyleStatuses).toContain(200);
   await expect.poll(async () => new Set((await renderedPixels(page)).pixels.map((pixel) => pixel.join(","))).size).toBeGreaterThan(1);
 });
