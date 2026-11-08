@@ -268,7 +268,7 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
           const height = container.current?.clientHeight ?? 700;
           const compactAir = latest.current.routeKind === "air" && (container.current?.clientWidth ?? 0) <= 360;
           const topPadding = compactAir ? Math.min(190, Math.round(height * 0.18)) : 48;
-          const targetBottomPadding = Math.round(height * latest.current.sheetInsetRatio);
+          const targetBottomPadding = Math.round(height * latest.current.sheetInsetRatio + (compactAir ? 48 : 0));
           const bottom = Math.min(targetBottomPadding, Math.max(0, height - topPadding - 48));
           const sidePadding = compactAir ? 40 : 36;
           const width = container.current?.clientWidth ?? 390;

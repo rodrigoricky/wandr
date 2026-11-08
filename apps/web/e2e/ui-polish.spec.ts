@@ -92,6 +92,14 @@ async function captureMatrix(page: import("@playwright/test").Page, name: string
       });
       expect(ratio).toBeGreaterThan(0.54);
       expect(ratio).toBeLessThan(0.66);
+      if (name === "air-results" && width === 320 && height === 700) {
+        await expect.poll(() => page.evaluate(() => {
+          const map = document.querySelector(".route-map")?.getBoundingClientRect();
+          const sheet = document.querySelector(".sheet-results")?.getBoundingClientRect();
+          const markers = [...document.querySelectorAll(".map-marker-airport")].map((element) => element.getBoundingClientRect());
+          return Boolean(map && sheet && markers.length === 2 && markers.every((marker) => marker.top >= map.top && marker.bottom <= sheet.top));
+        })).toBe(true);
+      }
     }
     const overflows = await page.evaluate(() => ({
       document: document.documentElement.scrollWidth > innerWidth,
