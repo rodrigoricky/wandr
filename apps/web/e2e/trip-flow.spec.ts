@@ -165,13 +165,13 @@ test("AdDU Jacinto starts the demo and the campus action never calls GPS or reve
   await page.getByRole("button", { name: "Choose destination" }).click();
   await page.getByRole("combobox", { name: "Destination place search" }).fill("SM City Davao");
   await page.getByRole("option").click();
-  await page.getByRole("button", { name: "Use AdDU Jacinto" }).click();
+  await page.getByRole("button", { name: "Use my current location" }).click();
   await expect(page.getByRole("button", { name: /Choose starting point, Ateneo de Davao University — Jacinto\/Main Campus/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Choose destination, SM City Davao/ })).toBeVisible();
   await page.getByRole("button", { name: /Choose destination, SM City Davao/ }).click();
   await page.getByRole("combobox", { name: "Destination place search" }).fill("Ateneo de Davao University Jacinto");
   await page.getByRole("option", { name: /Ateneo de Davao University/ }).click();
-  await page.getByRole("button", { name: "Use AdDU Jacinto" }).click();
+  await page.getByRole("button", { name: "Use my current location" }).click();
   await expect(page.getByRole("button", { name: /Choose starting point, Ateneo de Davao University — Jacinto\/Main Campus/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose destination" })).toBeVisible();
   await expect(page.locator(".map-marker-origin")).toHaveCount(1);

@@ -14,6 +14,7 @@ import { formatDistance, formatDuration, fareLabel, fullFareLabel } from "@/lib/
 import { adduJacintoDemoStart } from "@wandr/shared";
 
 const WandrMap = dynamic(() => import("@/components/map/WandrMap"), { ssr: false, loading: () => <div className="map-loading" role="status">Loading map…</div> });
+const demoCampusShortcut = process.env.NEXT_PUBLIC_WANDR_DEMO_MODE !== "false";
 
 type SortMode = "cheapest" | "fastest";
 type Screen = { kind: "search" } | { kind: "loading" } | { kind: "results"; data: CompareResponse; sort: SortMode } | { kind: "details"; data: CompareResponse; sort: SortMode; optionId: string };
@@ -98,7 +99,7 @@ export default function Home() {
   const mapDestination = resultData?.destination ?? destination;
   const mapGeometry = mapOption ? combineRouteGeometries(mapOption.legs.map((leg) => leg.geometry)) : null;
   const mapAirports = mapOption?.mode === "flight" ? resultData?.airports ?? null : null;
-  const bottomPadding = screen.kind === "search" || screen.kind === "loading" ? 330 : mapOption?.mode === "flight" ? (screen.kind === "results" ? 640 : 600) : screen.kind === "results" ? 500 : 470;
+  const sheetInsetRatio = screen.kind === "results" ? 0.6 : screen.kind === "search" || screen.kind === "loading" ? 0.4 : 0.4;
   const resultNotice = resultData ? comparisonNotice(resultData, sort, sortedOptions) : null;
 
   async function searchRoutes() {
@@ -158,14 +159,14 @@ export default function Home() {
 
   return <PhoneShell>
     <div className="wandr-app">
-      <WandrMap origin={mapOrigin?.coordinates} destination={mapDestination?.coordinates} geometry={mapGeometry} airports={mapAirports} routeKind={mapOption?.mode === "flight" ? "air" : "road"} bottomPadding={bottomPadding}/>
+      <WandrMap origin={mapOrigin?.coordinates} destination={mapDestination?.coordinates} geometry={mapGeometry} airports={mapAirports} routeKind={mapOption?.mode === "flight" ? "air" : "road"} sheetInsetRatio={sheetInsetRatio}/>
 
       {(screen.kind === "search" || screen.kind === "loading") && <section className="sheet sheet-search" aria-label="Trip search">
         <div className="sheet-grabber" aria-hidden="true" />
         <div className="place-fields">{placeField("origin", origin)}{placeField("destination", destination)}
           <button type="button" className="swap-button" onClick={swapPlaces} disabled={!origin && !destination} aria-label="Swap origin and destination"><ArrowLeftRight size={18}/></button>
         </div>
-        <div className="search-actions"><button className="location-button" type="button" onClick={useCampusStart}><MapPin size={17}/>Use AdDU Jacinto</button></div>
+        <div className="search-actions"><button className="location-button" type="button" onClick={demoCampusShortcut ? useCampusStart : () => setPicker("origin")}><MapPin size={17}/>{demoCampusShortcut ? "Use my current location" : "Choose starting point"}</button></div>
         {error && <div className="inline-alert" role="alert">{error}</div>}
         <button type="button" className="primary-button" onClick={searchRoutes} disabled={!canSearch || screen.kind === "loading"}>{screen.kind === "loading" ? <><span className="spinner" aria-hidden="true"/>Finding routes…</> : <><Search size={18}/>Find routes</>}</button>
         {screen.kind === "loading" && <button type="button" className="text-button cancel-button" onClick={cancelRouteSearch}>Cancel</button>}

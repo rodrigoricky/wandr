@@ -30,15 +30,15 @@ type Props = {
   geometry?: GeoGeometry | null;
   airports?: { origin: Airport; destination: Airport } | null;
   routeKind?: "road" | "air";
-  bottomPadding?: number;
+  sheetInsetRatio?: number;
 };
 
-export default function WandrMap({ origin, destination, geometry, airports, routeKind = "road", bottomPadding = 280 }: Props) {
+export default function WandrMap({ origin, destination, geometry, airports, routeKind = "road", sheetInsetRatio = 0.4 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<import("maplibre-gl").Map | null>(null);
   const markers = useRef<import("maplibre-gl").Marker[]>([]);
   const fitRoute = useRef<(() => void) | null>(null);
-  const latest = useRef({ origin, destination, geometry, airports, routeKind, bottomPadding });
+  const latest = useRef({ origin, destination, geometry, airports, routeKind, sheetInsetRatio });
   const [mapState, setMapState] = useState<MapState>({ status: "initializing" });
   const mapStateRef = useRef<MapState>({ status: "initializing" });
   const [styleRevision, setStyleRevision] = useState(0);
@@ -47,7 +47,7 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
     setMapState(next);
   };
 
-  useEffect(() => { latest.current = { origin, destination, geometry, airports, routeKind, bottomPadding }; }, [origin, destination, geometry, airports, routeKind, bottomPadding]);
+  useEffect(() => { latest.current = { origin, destination, geometry, airports, routeKind, sheetInsetRatio }; }, [origin, destination, geometry, airports, routeKind, sheetInsetRatio]);
 
   useEffect(() => {
     let disposed = false;
@@ -81,7 +81,7 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
         instance = created;
         map.current = created;
         created.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
-        created.addControl(new maplibre.AttributionControl({ compact: false, customAttribution: '<a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Powered by Geoapify</a>' }), "top-left");
+        created.addControl(new maplibre.AttributionControl({ compact: true, customAttribution: '<a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Powered by Geoapify</a>' }), "top-left");
         const useFallback = () => {
           if (disposed || usingFallback) return;
           usingFallback = true;
@@ -266,10 +266,9 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
           }
           const height = container.current?.clientHeight ?? 700;
           const compactAir = latest.current.routeKind === "air" && (container.current?.clientWidth ?? 0) <= 360;
-          const topPadding = compactAir ? 190 : 72;
-          const bottom = compactAir
-            ? Math.min(latest.current.bottomPadding, Math.round(height * 0.6))
-            : Math.min(latest.current.bottomPadding, Math.max(70, height - topPadding - 100));
+          const topPadding = compactAir ? Math.min(190, Math.round(height * 0.18)) : 48;
+          const targetBottomPadding = Math.round(height * latest.current.sheetInsetRatio);
+          const bottom = Math.min(targetBottomPadding, Math.max(0, height - topPadding - 48));
           const sidePadding = compactAir ? 40 : 36;
           const width = container.current?.clientWidth ?? 390;
           const longitudeSpan = Math.abs(lastLongitude - first.lon);
@@ -281,14 +280,15 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
           instance.fitBounds(bounds, { padding: { top: topPadding, right: sidePadding, bottom, left: sidePadding }, absolutePadding: true, maxZoom: Math.min(15, compactAirMaxZoom), duration: 220 });
         } else if (points.length === 1) {
           const point = points[0];
+          const height = container.current?.clientHeight ?? 700;
           instance.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
-          instance.flyTo({ center: [point.lon, point.lat], zoom: 14, padding: { top: 50, right: 30, bottom: latest.current.bottomPadding, left: 30 }, duration: 220 });
+          instance.flyTo({ center: [point.lon, point.lat], zoom: 14, padding: { top: 40, right: 30, bottom: Math.round(height * latest.current.sheetInsetRatio), left: 30 }, duration: 220 });
         }
       };
       fitRoute.current = fitCurrentRoute;
       fitCurrentRoute();
     }).catch(() => updateMapState({ status: "failed", message: "The selected route could not be drawn on the map." }));
-  }, [origin, destination, geometry, airports, routeKind, bottomPadding, mapState.status, styleRevision]);
+  }, [origin, destination, geometry, airports, routeKind, sheetInsetRatio, mapState.status, styleRevision]);
 
   return <div className="map-layer">
     <div className="route-map" ref={container} data-map-ready={mapState.status === "ready" || mapState.status === "degraded" ? "true" : "false"} data-map-provider={mapState.status === "ready" || mapState.status === "degraded" ? mapState.provider : "loading"} data-route-kind={routeKind} aria-label="Interactive map showing selected places and provider route geometry" role="region" />
