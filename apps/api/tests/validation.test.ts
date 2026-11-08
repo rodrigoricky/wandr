@@ -9,6 +9,11 @@ describe("API input validation", () => {
     const request = new Request("https://api.test/v1/trips/compare", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ origin: place("a", 7.07, 125.61), destination: place("b", 7.1, 125.62) }) });
     await expect(readCompareRequest(request)).resolves.toMatchObject({ origin: { id: "a" }, destination: { id: "b" } });
   });
+  it("accepts the 205-character Geoapify place ID for the reviewed AdDU Jacinto demo pin", async () => {
+    const originId = "geoapify:51bfefdfbc38675f4059ffe89b340d4a1c40f00102f9013d69ba0100000000c0020192031a4174656e656f20646520446176616f20556e6976657273697479e203206f70656e7374726565746d61703a76656e75653a7761792f3238393933383533";
+    const request = new Request("https://api.test/v1/trips/compare", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ origin: { ...place(originId, 7.072316, 125.612838), label: "Ateneo de Davao University — Jacinto/Main Campus" }, destination: place("city-hall", 7.064662, 125.6079614) }) });
+    await expect(readCompareRequest(request)).resolves.toMatchObject({ origin: { id: originId, coordinates: { lat: 7.072316, lon: 125.612838 } } });
+  });
   it("rejects the same place but accepts globally resolved labels and coordinates", async () => {
     const request = new Request("https://api.test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ origin: place("a", 7.07, 125.61), destination: place("a", 7.07, 125.61) }) });
     await expect(readCompareRequest(request)).rejects.toMatchObject({ code: "SAME_PLACE" });

@@ -12,7 +12,7 @@ export function isWithinApproximateDavaoCoverage(point: { lat: number; lon: numb
 export function validatePlace(value: unknown, key: string): Place {
   if (!value || typeof value !== "object") throw new ApiFailure(400, "INVALID_INPUT", `${key} must be a selected place.`);
   const place = value as Record<string, unknown>;
-  if (typeof place.id !== "string" || place.id.length < 1 || place.id.length > 200
+  if (typeof place.id !== "string" || place.id.length < 1 || place.id.length > 300
     || typeof place.label !== "string" || place.label.length < 1 || place.label.length > 300
     || !validCoordinates(place.coordinates)) throw new ApiFailure(400, "INVALID_INPUT", `${key} must include a valid label and coordinates.`);
   const point = place.coordinates;

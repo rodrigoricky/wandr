@@ -167,8 +167,9 @@ test("AdDU Jacinto starts the demo and the campus action never calls GPS or reve
 });
 
 test("reviewed local Davao aliases appear immediately and merge with provider results", async ({ page }) => {
+  let releaseProviderSearch: (() => void) | undefined;
   await page.route("**/v1/places/search**", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await new Promise<void>((resolve) => { releaseProviderSearch = resolve; });
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ places: [
       { id: "provider-abreeza", label: "Abreeza Ayala Mall Davao", addressLine: "J. P. Laurel Avenue, Davao City, Philippines", category: "commercial.shopping_mall", source: "Geoapify", confidence: null, coordinates: { lon: 125.611561, lat: 7.0912032 } },
       { id: "provider-other", label: "Abreeza Parking", addressLine: "Davao City, Philippines", category: "parking", source: "Geoapify", confidence: null, coordinates: { lon: 125.612, lat: 7.091 } },
@@ -179,9 +180,11 @@ test("reviewed local Davao aliases appear immediately and merge with provider re
   const input = page.getByRole("combobox", { name: "Starting point place search" });
   await input.fill("Abreeza Mall");
   const localResult = page.getByRole("option", { name: /Abreeza Ayala Mall Davao/ });
+  await expect.poll(() => Boolean(releaseProviderSearch)).toBe(true);
   await expect(localResult).toBeEnabled();
   await expect(localResult).toBeVisible();
   await expect(page.getByRole("option")).toHaveCount(1);
+  releaseProviderSearch?.();
   await expect(page.getByRole("option", { name: /Abreeza Parking/ })).toBeVisible({ timeout: 8_000 });
   await expect(page.getByRole("option")).toHaveCount(2);
   await localResult.click();

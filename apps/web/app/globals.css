@@ -82,6 +82,7 @@ a { color: inherit; }
 .trip-summary p { min-width: 0; overflow: hidden; color: #555; font-size: 12px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .trip-summary strong { color: #222; font-weight: 600; }
 .option-list-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; padding: 0 2px calc(8px + env(safe-area-inset-bottom)); margin: 0 -2px; }
+.option-list-scroll:focus-visible { outline: 2px solid #111; outline-offset: -2px; }
 .option-list { display: flex; flex-direction: column; gap: 9px; }
 .option-card { width: 100%; display: block; padding: 13px; border: 1px solid var(--border); border-radius: 15px; background: #fff; color: var(--ink); text-align: left; cursor: pointer; }
 .option-card:hover { border-color: #aaa; }
