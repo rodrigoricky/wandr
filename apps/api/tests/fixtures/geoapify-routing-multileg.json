@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [[125.6100, 7.0700], [125.6120, 7.0720], [125.6150, 7.0750]],
+          [[125.6150, 7.0750], [125.6180, 7.0780], [125.6200, 7.0800]]
+        ]
+      },
+      "properties": {
+        "distance": 3100,
+        "distance_units": "Meters",
+        "time": 1320,
+        "legs": [
+          {
+            "distance": 1500,
+            "time": 640,
+            "steps": [
+              { "distance": 900, "time": 390, "instruction": { "text": "Head northeast on the mapped road", "type": "StartAt" } },
+              { "distance": 600, "time": 250, "instruction": { "text": "Turn right at the junction", "type": "Right" } }
+            ]
+          },
+          {
+            "distance": 1600,
+            "time": 680,
+            "steps": [
+              { "distance": 1100, "time": 460, "instruction": { "text": "Continue along the mapped road", "type": "Straight" } },
+              { "distance": 500, "time": 220, "instruction": { "text": "Arrive at the destination", "type": "DestinationReached" } }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

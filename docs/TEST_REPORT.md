@@ -4,6 +4,21 @@ This report is updated after local verification. A successful compile is not evi
 
 ## Status
 
+## Execution checkpoints
+
+### Checkpoint 0 — fresh audit (2026-11-08)
+
+- `git status --short --branch`, remote refs and Pages/Worker resource listing were checked before source edits. Starting commit was `4d520936fb96a561a570451fab4b87b1c6c82148`; it matched `origin/main`. Work continues on `codex/wandr-full-correction-20261108`.
+- `npm ci`: PASS; 235 packages audited, 0 findings. Baseline `npm run check`: PASS (17 unit tests); `npm run test:e2e`: PASS (3 mocked Chromium journeys); `npm audit`: PASS; Worker dry-run: PASS. Baseline screenshot saved to `/tmp/wandr-baseline.png`.
+- Local Worker smoke: health 200 / configured false; place search 503 `CONFIGURATION_MISSING`; reverse lookup 200 coordinate fallback; unauthorized-origin CORS preflight omitted allow-origin. This confirmed no mocked success response.
+- No `GEOAPIFY_API_KEY` in process environment and no `apps/api/.dev.vars`; both `wandr-api-preview` and `wandr-api-production` returned Cloudflare “Worker does not exist”; Pages list contained no `wandr` project. DNS lookup for `wandr.ricky.network` and `api.wandr.ricky.network` returned no records. Cloudflare account auth is available but no target resources are configured.
+
+### Checkpoint 1 — routing/map parser repair
+
+- `npm run check`: PASS after repair (21 unit tests: 3 shared, 16 API, 2 web; strict workspace typecheck, lint, Next static build). `npm run test:e2e`: PASS (3/3 fixture-driven browser tests).
+- New provider fixture at `apps/api/tests/fixtures/geoapify-routing-multileg.json` follows the documented GeoJSON `MultiLineString` + `properties.legs[].steps` shape. Tests verify ordered per-leg geometry, `instruction.text`, meter/time fields, miles conversion, coordinate bounds, malformed geometry, missing credentials, quota, timeout and abort mapping. This is a documented-shape fixture, not a live Geoapify response.
+- Live Davao walking/driving request and live route rendering: **BLOCKED** — Geoapify key is not configured. Do not count fixture coverage as A04/A06 or a completed Phase 1 gate.
+
 - Provider credentials: not configured in the project environment at audit; live Geoapify calls and route visual checks are blocked until an owner supplies a key. The local Worker returned the documented `CONFIGURATION_MISSING` error; coordinate-only reverse-geocode fallback returned HTTP 200.
 - Verified transit/fare dataset: absent; transit feasibility and motorized fare accuracy cannot pass acceptance.
 - Cloudflare access/deployment: not configured or verified.

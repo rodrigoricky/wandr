@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Coordinates, GeoLine } from "@wandr/shared";
+import type { Coordinates, GeoGeometry } from "@wandr/shared";
 
-type Props = { origin?: Coordinates | null; destination?: Coordinates | null; geometry?: GeoLine | null };
+type Props = { origin?: Coordinates | null; destination?: Coordinates | null; geometry?: GeoGeometry | null };
 
 export default function WandrMap({ origin, destination, geometry }: Props) {
   const container = useRef<HTMLDivElement>(null);
@@ -50,7 +50,8 @@ export default function WandrMap({ origin, destination, geometry }: Props) {
       const points = [origin, destination].filter((point): point is Coordinates => Boolean(point));
       if (points.length === 2) {
         const bounds = points.reduce((b, p) => b.extend([p.lon, p.lat]), new maplibre.LngLatBounds([points[0].lon, points[0].lat], [points[0].lon, points[0].lat]));
-        if (geometry) geometry.coordinates.forEach((point) => bounds.extend(point));
+        if (geometry?.type === "LineString") geometry.coordinates.forEach((point) => bounds.extend(point));
+        if (geometry?.type === "MultiLineString") geometry.coordinates.flat().forEach((point) => bounds.extend(point));
         instance.fitBounds(bounds, { padding: 42, maxZoom: 15, duration: 250 });
       } else if (points.length === 1) instance.flyTo({ center: [points[0].lon, points[0].lat], zoom: 14, duration: 250 });
     });

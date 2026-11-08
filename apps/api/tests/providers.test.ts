@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { route } from "../src/providers/geoapify";
+import { normalizeRouteFeature, route } from "../src/providers/geoapify";
+import fixture from "./fixtures/geoapify-routing-multileg.json";
 import { compare } from "../src/services/compare";
 import { ApiFailure } from "../src/lib/errors";
 
@@ -14,17 +15,45 @@ describe("Geoapify routing adapter", () => {
     const fetchMock = vi.fn(async (input: URL | RequestInfo) => {
       const url = new URL(String(input));
       expect(url.searchParams.get("waypoints")).toBe("7.07,125.61|7.08,125.62");
-      return Response.json({ features: [{ geometry: { type: "LineString", coordinates: [[125.61, 7.07], [125.62, 7.08]] }, properties: { distance: 1400, time: 900 } }] });
+      expect(url.searchParams.get("units")).toBe("metric");
+      expect(url.searchParams.get("details")).toBe("instruction_details");
+      return Response.json({ features: [{ geometry: { type: "LineString", coordinates: [[125.61, 7.07], [125.62, 7.08]] }, properties: { distance: 1400, distance_units: "Meters", time: 900, legs: [{ distance: 1400, time: 900, steps: [{ distance: 1400, time: 900, instruction: { text: "Continue on the mapped path" } }] }] } }] });
     });
     vi.stubGlobal("fetch", fetchMock);
     const result = await route({ GEOAPIFY_API_KEY: "test-only" }, "walk", { lat: 7.07, lon: 125.61 }, { lat: 7.08, lon: 125.62 });
-    expect(result.geometry?.coordinates[0]).toEqual([125.61, 7.07]);
+    expect(result).toHaveLength(1);
+    expect(result[0].geometry).toMatchObject({ type: "LineString", coordinates: [[125.61, 7.07], [125.62, 7.08]] });
+    expect(result[0].steps).toEqual([{ instruction: "Continue on the mapped path", distanceMeters: 1400, durationSeconds: 900 }]);
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+  it("normalizes the documented MultiLineString geometry into ordered legs and real steps", () => {
+    const legs = normalizeRouteFeature(fixture.features[0], "walk");
+    expect(legs).toHaveLength(2);
+    expect(legs.map((leg) => [leg.distanceMeters, leg.durationSeconds])).toEqual([[1500, 640], [1600, 680]]);
+    expect(legs[0].geometry).toMatchObject({ type: "LineString", coordinates: [[125.61, 7.07], [125.612, 7.072], [125.615, 7.075]] });
+    expect(legs[1].geometry).toMatchObject({ type: "LineString", coordinates: [[125.615, 7.075], [125.618, 7.078], [125.62, 7.08]] });
+    expect(legs.flatMap((leg) => leg.steps.map((step) => step.instruction))).toEqual([
+      "Head northeast on the mapped road", "Turn right at the junction", "Continue along the mapped road", "Arrive at the destination",
+    ]);
+  });
+  it("converts documented miles to meters and rejects malformed geometry and measurements", () => {
+    const valid = { geometry: { type: "LineString", coordinates: [[-77.04, 38.89], [-77.03, 38.90]] }, properties: { distance: 1, distance_units: "Miles", time: 30 } };
+    expect(normalizeRouteFeature(valid, "drive")[0].distanceMeters).toBeCloseTo(1609.344);
+    expect(normalizeRouteFeature({ ...valid, geometry: { type: "MultiLineString", coordinates: [[[181, 38], [-77, 39]]] } }, "drive")).toEqual([]);
+    expect(normalizeRouteFeature({ ...valid, properties: { distance: -1, time: 0 } }, "drive")).toEqual([]);
   });
   it("maps provider rate limits to a retryable upstream error", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 429 })));
     await expect(route({ GEOAPIFY_API_KEY: "test-only" }, "drive", { lat: 7.07, lon: 125.61 }, { lat: 7.08, lon: 125.62 }))
       .rejects.toMatchObject({ code: "UPSTREAM_QUOTA", retryable: true });
+  });
+  it("maps network timeout and explicit request cancellation without fake geometry", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("network failure"); }));
+    await expect(route({ GEOAPIFY_API_KEY: "test-only" }, "walk", { lat: 7.07, lon: 125.61 }, { lat: 7.08, lon: 125.62 }))
+      .rejects.toMatchObject({ code: "UPSTREAM_TIMEOUT", retryable: true });
+    const controller = new AbortController(); controller.abort();
+    await expect(route({ GEOAPIFY_API_KEY: "test-only" }, "walk", { lat: 7.07, lon: 125.61 }, { lat: 7.08, lon: 125.62 }, controller.signal))
+      .rejects.toMatchObject({ code: "REQUEST_ABORTED" });
   });
 });
 

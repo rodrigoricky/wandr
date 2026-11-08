@@ -10,13 +10,16 @@ export type FareEstimate = {
   checkedAt: string | null;
 };
 export type GeoLine = { type: "LineString"; coordinates: [number, number][] };
+export type GeoGeometry = GeoLine | { type: "MultiLineString"; coordinates: [number, number][][] };
+export type RouteStep = { instruction: string; distanceMeters: number | null; durationSeconds: number | null };
 export type TravelMode = "walk" | "drive";
 export type RouteLeg = {
   mode: TravelMode;
   title: string;
   distanceMeters: number | null;
   durationSeconds: number | null;
-  geometry: GeoLine | null;
+  geometry: GeoGeometry | null;
+  steps: RouteStep[];
   source: string | null;
 };
 export type TransportOption = {
@@ -37,7 +40,7 @@ export type CompareResponse = {
   origin: Place;
   destination: Place;
   generatedAt: string;
-  scope: "davao_city";
+  scope: "davao_city" | "unsupported";
   options: TransportOption[];
   warnings: string[];
 };

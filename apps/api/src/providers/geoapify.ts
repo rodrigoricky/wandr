@@ -1,5 +1,5 @@
-import type { Coordinates, PlaceSuggestion, RouteLeg, TravelMode } from "@wandr/shared";
-import { toGeoLine } from "@wandr/shared";
+import type { Coordinates, PlaceSuggestion, RouteLeg, RouteStep, TravelMode } from "@wandr/shared";
+import { toGeoGeometry } from "@wandr/shared";
 import { ApiFailure } from "../lib/errors";
 import type { Env } from "../types";
 
@@ -11,10 +11,13 @@ function requireKey(env: Env): string {
   return env.GEOAPIFY_API_KEY;
 }
 
-async function upstream(url: URL): Promise<unknown> {
+async function upstream(url: URL, signal?: AbortSignal): Promise<unknown> {
   let response: Response;
-  try { response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) }); }
-  catch { throw new ApiFailure(502, "UPSTREAM_TIMEOUT", "The mapping service did not respond. Please retry.", true); }
+  try { response = await fetch(url, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs) }); }
+  catch {
+    if (signal?.aborted) throw new ApiFailure(499, "REQUEST_ABORTED", "The request was cancelled.");
+    throw new ApiFailure(502, "UPSTREAM_TIMEOUT", "The mapping service did not respond. Please retry.", true);
+  }
   if (response.status === 429) throw new ApiFailure(503, "UPSTREAM_QUOTA", "The mapping service is temporarily limiting requests. Please try again later.", true);
   if (!response.ok) throw new ApiFailure(502, "UPSTREAM_UNAVAILABLE", "The mapping service is temporarily unavailable.", true);
   try { return await response.json(); } catch { throw new ApiFailure(502, "UPSTREAM_INVALID_RESPONSE", "The mapping service returned an unreadable response.", true); }
@@ -55,19 +58,83 @@ export async function reversePlace(env: Env, coordinates: Coordinates): Promise<
   return { id: first.place_id ?? `geoapify:${coordinates.lat.toFixed(5)},${coordinates.lon.toFixed(5)}`, label: first.formatted, fallback: false };
 }
 
-export async function route(env: Env, mode: TravelMode, origin: Coordinates, destination: Coordinates): Promise<RouteLeg> {
+type RawObject = Record<string, unknown>;
+
+function object(value: unknown): RawObject | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as RawObject : null;
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function readSteps(value: unknown, distanceUnits: string): RouteStep[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw): RouteStep[] => {
+    const step = object(raw);
+    const instruction = object(step?.instruction)?.text;
+    if (typeof instruction !== "string" || !instruction.trim()) return [];
+    let distance = numberOrNull(step?.distance);
+    if (distance !== null && distanceUnits.toLowerCase() === "miles") distance *= 1609.344;
+    return [{ instruction: instruction.trim(), distanceMeters: distance, durationSeconds: numberOrNull(step?.time) }];
+  });
+}
+
+export function normalizeRouteFeature(value: unknown, mode: TravelMode): RouteLeg[] {
+  const feature = object(value);
+  const properties = object(feature?.properties);
+  const rawGeometry = object(feature?.geometry);
+  const distanceUnits = typeof properties?.distance_units === "string" ? properties.distance_units : "meters";
+  const convertDistance = (distance: number | null): number | null =>
+    distance !== null && distanceUnits.toLowerCase() === "miles" ? distance * 1609.344 : distance;
+  const geometry = toGeoGeometry(rawGeometry);
+  const totalDistance = convertDistance(numberOrNull(properties?.distance));
+  const totalDuration = numberOrNull(properties?.time);
+  if (!geometry || totalDistance === null || totalDuration === null || totalDistance <= 0 || totalDuration <= 0) return [];
+
+  const rawLegs = Array.isArray(properties?.legs) ? properties.legs.map(object) : [];
+  const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
+  if (geometry.type === "MultiLineString" && rawLegs.length === lines.length && rawLegs.length > 0) {
+    const legs = rawLegs.map((leg, index): RouteLeg => {
+      const distance = convertDistance(numberOrNull(leg?.distance));
+      return {
+        mode,
+        title: mode === "walk" ? "Walking route" : "Driving route estimate",
+        distanceMeters: distance,
+        durationSeconds: numberOrNull(leg?.time),
+        geometry: { type: "LineString", coordinates: lines[index] },
+        steps: readSteps(leg?.steps, distanceUnits),
+        source: "Geoapify Routing",
+      };
+    });
+    return legs;
+  }
+
+  const steps = rawLegs.flatMap((leg) => readSteps(leg?.steps, distanceUnits));
+  return [{
+    mode,
+    title: mode === "walk" ? "Walking route" : "Driving route estimate",
+    distanceMeters: totalDistance,
+    durationSeconds: totalDuration,
+    geometry,
+    steps,
+    source: "Geoapify Routing",
+  }];
+}
+
+export async function route(env: Env, mode: TravelMode, origin: Coordinates, destination: Coordinates, signal?: AbortSignal): Promise<RouteLeg[]> {
   const url = new URL(`${base}/routing`);
   url.searchParams.set("waypoints", `${origin.lat},${origin.lon}|${destination.lat},${destination.lon}`);
   url.searchParams.set("mode", mode);
+  url.searchParams.set("units", "metric");
+  url.searchParams.set("lang", "en");
+  url.searchParams.set("details", "instruction_details");
   url.searchParams.set("apiKey", requireKey(env));
-  const payload = await upstream(url) as { features?: { geometry?: { type?: string; coordinates?: unknown }; properties?: { distance?: number; time?: number } }[] };
-  const feature = payload.features?.[0];
-  const coordinates = feature?.geometry?.type === "LineString" ? feature.geometry.coordinates : null;
-  const geometry = toGeoLine(coordinates);
-  const distance = feature?.properties?.distance;
-  const duration = feature?.properties?.time;
-  if (!geometry || typeof distance !== "number" || !Number.isFinite(distance) || typeof duration !== "number" || !Number.isFinite(duration)) {
+  const payload = object(await upstream(url, signal));
+  const features = Array.isArray(payload?.features) ? payload.features : [];
+  const legs = normalizeRouteFeature(features[0], mode);
+  if (legs.length === 0) {
     throw new ApiFailure(404, "NO_SUPPORTED_ROUTE", `No ${mode === "walk" ? "walking" : "driving"} route was found between these places.`, true);
   }
-  return { mode, title: mode === "walk" ? "Walking route" : "Driving route estimate", distanceMeters: distance, durationSeconds: duration, geometry, source: "Geoapify Routing" };
+  return legs;
 }

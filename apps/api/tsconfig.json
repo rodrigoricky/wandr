@@ -1,1 +1,1 @@
-{"extends":"../../tsconfig.base.json","compilerOptions":{"module":"ESNext","types":["@cloudflare/workers-types"],"paths":{"@wandr/shared":["../../packages/shared/src/index.ts"]}},"include":["src/**/*.ts","tests/**/*.ts"]}
+{"extends":"../../tsconfig.base.json","compilerOptions":{"module":"ESNext","resolveJsonModule":true,"types":["@cloudflare/workers-types"],"paths":{"@wandr/shared":["../../packages/shared/src/index.ts"]}},"include":["src/**/*.ts","tests/**/*.ts"]}

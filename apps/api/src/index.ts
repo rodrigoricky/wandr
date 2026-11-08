@@ -54,7 +54,7 @@ async function handleApiRoute(request: Request, env: Env, url: URL): Promise<Res
       return Response.json({ id: `gps:${lat.toFixed(5)},${lon.toFixed(5)}`, label: `${lat.toFixed(5)}, ${lon.toFixed(5)}`, fallback: true, warning: "Place name unavailable; showing coordinates only." });
     }
   }
-  if (request.method === "POST" && url.pathname === "/v1/trips/compare") return Response.json(await compare(env, await readCompareRequest(request)));
+  if (request.method === "POST" && url.pathname === "/v1/trips/compare") return Response.json(await compare(env, await readCompareRequest(request), request.signal));
   throw new ApiFailure(404, "NOT_FOUND", "This Wandr API endpoint was not found.");
 }
 

@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { ArrowLeft, ArrowLeftRight, LocateFixed, MapPin, Navigation, Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { combineRouteGeometries } from "@wandr/shared";
 import type { CompareResponse, Place, PlaceSuggestion, TransportOption } from "@wandr/shared";
 import { LocationPicker } from "@/components/search/LocationPicker";
 import { PhoneShell } from "@/components/shell/PhoneShell";
@@ -22,39 +23,68 @@ export default function Home() {
   const [picker, setPicker] = useState<PickerTarget | null>(null);
   const [error, setError] = useState("");
   const [gps, setGps] = useState<"idle" | "loading" | "denied" | "failed">("idle");
+  const routeAbort = useRef<AbortController | null>(null);
+  const gpsRequestId = useRef(0);
+
+  useEffect(() => () => { routeAbort.current?.abort(); gpsRequestId.current += 1; }, []);
 
   const canSearch = Boolean(origin && destination && (origin.id !== destination.id || origin.coordinates.lat !== destination.coordinates.lat || origin.coordinates.lon !== destination.coordinates.lon));
 
   async function searchRoutes() {
     if (!origin || !destination || !canSearch || screen.kind === "loading") return;
+    const controller = new AbortController();
+    routeAbort.current?.abort();
+    routeAbort.current = controller;
     setError(""); setScreen({ kind: "loading" });
-    try { const data = await compareTrip({ origin, destination }); setScreen({ kind: "results", data, sort: "cheapest" }); }
-    catch (reason) { setScreen({ kind: "search" }); setError(reason instanceof Error ? reason.message : "Could not find routes. Please retry."); }
+    try {
+      const data = await compareTrip({ origin, destination }, controller.signal);
+      if (!controller.signal.aborted) setScreen({ kind: "results", data, sort: "cheapest" });
+    } catch (reason) {
+      if (!controller.signal.aborted) {
+        setScreen({ kind: "search" });
+        setError(reason instanceof Error ? reason.message : "Could not find routes. Please retry.");
+      }
+    } finally { if (routeAbort.current === controller) routeAbort.current = null; }
+  }
+
+  function cancelRouteSearch() {
+    routeAbort.current?.abort();
+    routeAbort.current = null;
+    setScreen({ kind: "search" });
   }
 
   function choosePlace(target: PickerTarget, place: PlaceSuggestion) {
+    routeAbort.current?.abort();
+    gpsRequestId.current += 1;
     if (target === "origin") setOrigin(place); else setDestination(place);
     setPicker(null); setError(""); setGps("idle"); setScreen({ kind: "search" });
   }
 
   function swapPlaces() {
+    routeAbort.current?.abort();
+    gpsRequestId.current += 1;
     setOrigin(destination); setDestination(origin); setError(""); setScreen({ kind: "search" });
   }
 
   function useLocation() {
     if (!navigator.geolocation) { setGps("failed"); return; }
+    const requestId = ++gpsRequestId.current;
     setGps("loading"); setError("");
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      if (requestId !== gpsRequestId.current) return;
       const point = { lat: coords.latitude, lon: coords.longitude };
       try {
         const result = await reverseGeocode(point);
+        if (requestId !== gpsRequestId.current) return;
         const resolved: Place = { id: result.id, label: result.label, coordinates: point };
         setOrigin(resolved); setGps(result.fallback ? "failed" : "idle");
       } catch {
+        if (requestId !== gpsRequestId.current) return;
         const fallback: Place = { id: `gps:${point.lat.toFixed(5)},${point.lon.toFixed(5)}`, label: `${point.lat.toFixed(5)}, ${point.lon.toFixed(5)}`, coordinates: point };
         setOrigin(fallback); setGps("failed");
       }
     }, (failure) => {
+      if (requestId !== gpsRequestId.current) return;
       setGps(failure.code === failure.PERMISSION_DENIED ? "denied" : "failed");
     }, { enableHighAccuracy: false, timeout: 12_000, maximumAge: 0 });
   }
@@ -74,6 +104,7 @@ export default function Home() {
   }, [activeResult, screen]);
 
   const selected = screen.kind === "details" ? screen.data.options.find((option) => option.id === screen.optionId) : undefined;
+  const selectedGeometry = selected ? combineRouteGeometries(selected.legs.map((leg) => leg.geometry)) : null;
 
   return <PhoneShell>
     {screen.kind === "search" || screen.kind === "loading" ? <section className="page-shell">
@@ -87,6 +118,7 @@ export default function Home() {
         {gps === "denied" && <p className="mt-2 text-xs text-[var(--muted)]" role="status">Location permission was denied. You can still search by place name.</p>}
         {gps === "failed" && <p className="mt-2 text-xs text-[var(--muted)]" role="status">We couldn’t resolve your location to a place. Coordinates may be used if they are within the approximate Davao service area.</p>}
         <button type="button" className="primary-button mt-3" onClick={searchRoutes} disabled={!canSearch || screen.kind === "loading"}>{screen.kind === "loading" ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"/>Checking available routes…</> : <><Search size={18}/>Find routes</>}</button>
+        {screen.kind === "loading" && <button type="button" className="text-button mt-1 w-full" onClick={cancelRouteSearch}>Cancel route search</button>}
       </section>
       {error && <div className="status-box mt-3" role="alert" aria-live="assertive">{error}<button className="text-button ml-2" type="button" onClick={searchRoutes}>Retry</button></div>}
       <p className="mt-4 px-1 text-xs leading-relaxed text-[var(--muted)]">Wandr currently supports local trips in Davao City. Route estimates depend on available mapping data; public transport coverage is not yet verified.</p>
@@ -104,7 +136,7 @@ export default function Home() {
 
     {screen.kind === "details" && selected && <section className="page-shell">
       <header className="mb-4 flex items-center gap-3"><button className="icon-button" onClick={() => setScreen({ kind: "results", data: screen.data, sort: screen.sort })} aria-label="Back to route options"><ArrowLeft size={19}/></button><div><h1 className="text-lg font-semibold">Route details</h1><p className="text-xs text-[var(--muted)]">{selected.title}</p></div></header>
-      <WandrMap origin={screen.data.origin.coordinates} destination={screen.data.destination.coordinates} geometry={selected.legs[0]?.geometry}/>
+      <WandrMap origin={screen.data.origin.coordinates} destination={screen.data.destination.coordinates} geometry={selectedGeometry}/>
       <div className="card mt-4 p-4"><div className="flex items-start justify-between gap-2"><div><p className="font-semibold">{selected.title}</p><p className="mt-1 text-xs text-[var(--muted)]">{selected.availability === "estimated_road_route" ? "Estimated road route" : "Routed pedestrian path"}</p></div><span className="pill">{fareLabel(selected)}</span></div>
         <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-4"><p className="flex justify-between gap-3 text-sm"><span className="text-[var(--muted)]">Route distance</span><strong>{formatDistance(selected.legs[0]?.distanceMeters ?? null)}</strong></p><p className="flex justify-between gap-3 text-sm"><span className="text-[var(--muted)]">Route duration</span><strong>{formatDuration(selected.totalDurationSeconds)}</strong></p><p className="text-sm leading-relaxed text-[var(--muted)]">{selected.note}</p></div>
       </div>
