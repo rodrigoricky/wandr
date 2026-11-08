@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { adduJacintoDemoStart } from "@wandr/shared";
 
 declare global {
   interface Window { __gpsRequestCount: number }
@@ -139,7 +140,7 @@ test("AdDU Jacinto starts the demo and the campus action never calls GPS or reve
   let reverseRequests = 0;
   await page.route("**/v1/places/search**", async (route) => {
     const query = new URL(route.request().url()).searchParams.get("q")?.toLowerCase() ?? "";
-    await route.fulfill({ json: { places: [query.includes("hall") ? cityHall : mall] } });
+    await route.fulfill({ json: { places: [query.includes("hall") ? cityHall : query.includes("ateneo") ? adduJacintoDemoStart : mall] } });
   });
   page.on("request", (request) => { if (request.url().includes("/v1/places/reverse")) reverseRequests += 1; });
   await page.addInitScript(() => {
@@ -167,6 +168,14 @@ test("AdDU Jacinto starts the demo and the campus action never calls GPS or reve
   await page.getByRole("button", { name: "Use AdDU Jacinto" }).click();
   await expect(page.getByRole("button", { name: /Choose starting point, Ateneo de Davao University — Jacinto\/Main Campus/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Choose destination, SM City Davao/ })).toBeVisible();
+  await page.getByRole("button", { name: /Choose destination, SM City Davao/ }).click();
+  await page.getByRole("combobox", { name: "Destination place search" }).fill("Ateneo de Davao University Jacinto");
+  await page.getByRole("option", { name: /Ateneo de Davao University/ }).click();
+  await page.getByRole("button", { name: "Use AdDU Jacinto" }).click();
+  await expect(page.getByRole("button", { name: /Choose starting point, Ateneo de Davao University — Jacinto\/Main Campus/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose destination" })).toBeVisible();
+  await expect(page.locator(".map-marker-origin")).toHaveCount(1);
+  await expect(page.locator(".map-marker-destination")).toHaveCount(0);
   expect(await page.evaluate(() => window.__gpsRequestCount)).toBe(0);
   expect(reverseRequests).toBe(0);
 });
