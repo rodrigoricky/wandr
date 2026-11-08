@@ -1,9 +1,23 @@
 import type { CompareRequest, CompareResponse, TransportOption } from "@wandr/shared";
 import { route } from "../providers/geoapify";
 import { ApiFailure } from "../lib/errors";
+import { isWithinApproximateDavaoCoverage } from "../lib/validation";
 import type { Env } from "../types";
 
+const MAX_DEFAULT_WALK_METERS = 1_500;
+const MAX_DEFAULT_WALK_SECONDS = 25 * 60;
+
 export async function compare(env: Env, request: CompareRequest, signal?: AbortSignal): Promise<CompareResponse> {
+  if (!isWithinApproximateDavaoCoverage(request.origin.coordinates) || !isWithinApproximateDavaoCoverage(request.destination.coordinates)) {
+    return {
+      origin: request.origin,
+      destination: request.destination,
+      generatedAt: new Date().toISOString(),
+      scope: "unsupported",
+      options: [],
+      warnings: ["Place found; transport comparison is not supported for this journey yet. Wandr cannot compare verified fares or passenger services here."],
+    };
+  }
   const attempts = await Promise.allSettled([
     route(env, "walk", request.origin.coordinates, request.destination.coordinates, signal),
     route(env, "drive", request.origin.coordinates, request.destination.coordinates, signal),
@@ -23,6 +37,13 @@ export async function compare(env: Env, request: CompareRequest, signal?: AbortS
     const totalDurationSeconds = legs.every((leg) => leg.durationSeconds !== null)
       ? legs.reduce((sum, leg) => sum + (leg.durationSeconds ?? 0), 0)
       : null;
+    const totalDistanceMeters = legs.every((leg) => leg.distanceMeters !== null)
+      ? legs.reduce((sum, leg) => sum + (leg.distanceMeters ?? 0), 0)
+      : null;
+    if (isWalk && (totalDistanceMeters === null || totalDurationSeconds === null || totalDistanceMeters > MAX_DEFAULT_WALK_METERS || totalDurationSeconds > MAX_DEFAULT_WALK_SECONDS)) {
+      warnings.push("A walking route was found but is longer than Wandr’s short-walk comparison limit, so it is not shown as the default money-saving option.");
+      continue;
+    }
     options.push({
       id: `geoapify-${mode}`,
       title: isWalk ? "Walk" : "Drive estimate",
@@ -32,13 +53,11 @@ export async function compare(env: Env, request: CompareRequest, signal?: AbortS
         ? { currency: "PHP", min: 0, max: 0, status: "published_rule", sourceName: "No motorized transport", sourceUrl: null, checkedAt: null }
         : { currency: "PHP", min: null, max: null, status: "unknown", sourceName: null, sourceUrl: null, checkedAt: null },
       totalDurationSeconds,
-      totalWalkingMeters: isWalk && legs.every((leg) => leg.distanceMeters !== null)
-        ? legs.reduce((sum, leg) => sum + (leg.distanceMeters ?? 0), 0)
-        : isWalk ? null : 0,
+      totalWalkingMeters: isWalk ? totalDistanceMeters : 0,
       transfers: 0,
       availability: isWalk ? "verified_route" : "estimated_road_route",
       note: isWalk ? "Routed pedestrian path. Path availability does not establish accessibility or safety." : "Road driving duration only; this does not establish taxi availability, fare, pickup time, or a complete passenger journey.",
-      rankingEligible: { cheapest: isWalk, fastest: true },
+      rankingEligible: { cheapest: isWalk, fastest: isWalk },
     });
   }
   if (!options.length) {

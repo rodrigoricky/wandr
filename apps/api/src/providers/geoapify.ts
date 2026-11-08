@@ -1,5 +1,5 @@
 import type { Coordinates, PlaceSuggestion, RouteLeg, RouteStep, TravelMode } from "@wandr/shared";
-import { toGeoGeometry } from "@wandr/shared";
+import { toGeoGeometry, validCoordinates } from "@wandr/shared";
 import { ApiFailure } from "../lib/errors";
 import type { Env } from "../types";
 
@@ -23,27 +23,73 @@ async function upstream(url: URL, signal?: AbortSignal): Promise<unknown> {
   try { return await response.json(); } catch { throw new ApiFailure(502, "UPSTREAM_INVALID_RESPONSE", "The mapping service returned an unreadable response.", true); }
 }
 
-export async function searchPlaces(env: Env, query: string): Promise<PlaceSuggestion[]> {
+function normalizedText(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+export async function searchPlaces(env: Env, query: string, bias?: Coordinates, signal?: AbortSignal): Promise<PlaceSuggestion[]> {
   const url = new URL(`${base}/geocode/autocomplete`);
   url.searchParams.set("text", query);
-  url.searchParams.set("filter", "rect:125.15,6.85,125.85,7.5");
-  url.searchParams.set("bias", "proximity:125.612,7.073");
+  const searchBias = bias ?? { lon: 125.612, lat: 7.073 };
+  url.searchParams.set("bias", `proximity:${searchBias.lon},${searchBias.lat}`);
   url.searchParams.set("lang", "en");
   url.searchParams.set("limit", "6");
   url.searchParams.set("apiKey", requireKey(env));
-  const payload = await upstream(url) as { features?: unknown[] };
+  const payload = await upstream(url, signal) as { features?: unknown[] };
   if (!Array.isArray(payload.features)) return [];
-  return payload.features.flatMap((feature): PlaceSuggestion[] => {
+  const queryText = normalizedText(query);
+  const ranked = payload.features.flatMap((feature, index): { place: PlaceSuggestion; score: number; index: number }[] => {
     if (!feature || typeof feature !== "object") return [];
     const item = feature as { properties?: Record<string, unknown>; geometry?: { coordinates?: unknown } };
     const p = item.properties;
     const xy = item.geometry?.coordinates;
-    if (!p || !Array.isArray(xy) || typeof xy[0] !== "number" || typeof xy[1] !== "number" || !Number.isFinite(xy[0]) || !Number.isFinite(xy[1])) return [];
-    const label = typeof p.formatted === "string" ? p.formatted : "";
-    const id = typeof p.place_id === "string" ? p.place_id : "";
-    if (!label || !id) return [];
-    return [{ id, label, addressLine: label, coordinates: { lon: xy[0], lat: xy[1] } }];
+    if (!p || !Array.isArray(xy)) return [];
+    const coordinates = { lon: typeof xy[0] === "number" ? xy[0] : p.lon, lat: typeof xy[1] === "number" ? xy[1] : p.lat };
+    if (!validCoordinates(coordinates)) return [];
+    const formatted = typeof p.formatted === "string" ? p.formatted.trim() : "";
+    const addressLine1 = typeof p.address_line1 === "string" ? p.address_line1.trim() : "";
+    const name = typeof p.name === "string" ? p.name.trim() : "";
+    const label = name || addressLine1 || formatted;
+    if (!label) return [];
+    const secondary: string[] = [];
+    for (const rawPart of [p.address_line2, p.city, p.state, p.country]) {
+      if (typeof rawPart !== "string" || !rawPart.trim()) continue;
+      const part = rawPart.trim();
+      const normalizedPart = normalizedText(part);
+      if (!normalizedPart || normalizedPart === normalizedText(label)
+        || secondary.some((existing) => normalizedText(existing).includes(normalizedPart))) continue;
+      secondary.push(part);
+    }
+    const addressLine = secondary.join(", ") || (formatted.toLocaleLowerCase() !== label.toLocaleLowerCase() ? formatted : "");
+    const rawId = typeof p.place_id === "string" && p.place_id.length > 0 ? p.place_id : `${coordinates.lon.toFixed(6)},${coordinates.lat.toFixed(6)}:${normalizedText(label)}`;
+    const id = `geoapify:${rawId}`;
+    const rank = p.rank && typeof p.rank === "object" ? p.rank as Record<string, unknown> : {};
+    const confidence = typeof rank.confidence === "number" && Number.isFinite(rank.confidence) && rank.confidence >= 0 && rank.confidence <= 1 ? rank.confidence : null;
+    const category = typeof p.category === "string" ? p.category : Array.isArray(p.categories) && typeof p.categories[0] === "string" ? p.categories[0] : null;
+    const place: PlaceSuggestion = {
+      id,
+      label,
+      addressLine,
+      category,
+      city: typeof p.city === "string" ? p.city : null,
+      country: typeof p.country === "string" ? p.country : null,
+      source: "Geoapify",
+      confidence,
+      coordinates,
+    };
+    const normalizedName = normalizedText(label);
+    const nameScore = normalizedName === queryText ? 100 : normalizedName.startsWith(queryText) ? 60 : 0;
+    return [{ place, score: nameScore + (category ? 5 : 0) + (confidence ?? 0) * 4, index }];
   });
+  const seenIds = new Set<string>();
+  const seenLocations = new Set<string>();
+  return ranked.sort((a, b) => b.score - a.score || a.index - b.index).flatMap(({ place }) => {
+    const locationKey = `${normalizedText(place.label)}|${place.coordinates.lon.toFixed(5)},${place.coordinates.lat.toFixed(5)}`;
+    if (seenIds.has(place.id) || seenLocations.has(locationKey)) return [];
+    seenIds.add(place.id);
+    seenLocations.add(locationKey);
+    return [place];
+  }).slice(0, 6);
 }
 
 export async function reversePlace(env: Env, coordinates: Coordinates): Promise<{ id: string; label: string; fallback: boolean; warning?: string }> {

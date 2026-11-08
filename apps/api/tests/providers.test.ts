@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { normalizeRouteFeature, route } from "../src/providers/geoapify";
+import { normalizeRouteFeature, route, searchPlaces } from "../src/providers/geoapify";
 import fixture from "./fixtures/geoapify-routing-multileg.json";
 import { compare } from "../src/services/compare";
 import { ApiFailure } from "../src/lib/errors";
@@ -54,6 +54,34 @@ describe("Geoapify routing adapter", () => {
     const controller = new AbortController(); controller.abort();
     await expect(route({ GEOAPIFY_API_KEY: "test-only" }, "walk", { lat: 7.07, lon: 125.61 }, { lat: 7.08, lon: 125.62 }, controller.signal))
       .rejects.toMatchObject({ code: "REQUEST_ABORTED" });
+  });
+});
+
+describe("Geoapify worldwide place autocomplete", () => {
+  it("uses a non-restrictive proximity bias and returns named, disambiguated POIs first", async () => {
+    const requestUrl: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input)); requestUrl.push(url);
+      return Response.json({ features: [
+        { geometry: { coordinates: [2.2945, 48.8584] }, properties: { place_id: "tower-1", name: "Eiffel Tower", formatted: "Eiffel Tower, Champ de Mars, 75007 Paris, France", address_line2: "Champ de Mars, 75007 Paris", city: "Paris", country: "France", category: "tourism.attraction", result_type: "amenity", rank: { confidence: 0.99 } } },
+        { geometry: { coordinates: [2.2945, 48.8584] }, properties: { place_id: "duplicate-provider-id", name: "Eiffel Tower", formatted: "Eiffel Tower, Champ de Mars, 75007 Paris, France", city: "Paris", country: "France" } },
+        { geometry: { coordinates: [2.29, 48.85] }, properties: { place_id: "other", name: "Eiffel Tower Garage", formatted: "Eiffel Tower Garage, Paris", category: "parking" } },
+        { geometry: { coordinates: [181, 48.85] }, properties: { place_id: "bad", name: "Invalid coordinate" } },
+      ] });
+    }));
+    const places = await searchPlaces({ GEOAPIFY_API_KEY: "test-only" }, "Eiffel Tower", { lat: 7.073, lon: 125.612 });
+    expect(requestUrl[0].searchParams.has("filter")).toBe(false);
+    expect(requestUrl[0].searchParams.get("bias")).toBe("proximity:125.612,7.073");
+    expect(places).toHaveLength(2);
+    expect(places[0]).toMatchObject({ id: "geoapify:tower-1", label: "Eiffel Tower", addressLine: "Champ de Mars, 75007 Paris, France", category: "tourism.attraction", city: "Paris", country: "France", source: "Geoapify", confidence: 0.99, coordinates: { lon: 2.2945, lat: 48.8584 } });
+  });
+  it("uses a default Davao ranking bias without restricting global matches", async () => {
+    const fetchMock = vi.fn(async (_input: URL | RequestInfo) => Response.json({ features: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await searchPlaces({ GEOAPIFY_API_KEY: "test-only" }, "Tokyo Tower");
+    const url = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(url.searchParams.get("bias")).toBe("proximity:125.612,7.073");
+    expect(url.searchParams.has("filter")).toBe(false);
   });
 });
 

@@ -1,8 +1,9 @@
 import type { ApiError, CompareRequest, CompareResponse, Coordinates, PlaceSuggestion } from "@wandr/shared";
 
-const apiBase = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8787").replace(/\/$/, "");
+const apiBase = (process.env.NEXT_PUBLIC_API_BASE_URL ?? (process.env.NODE_ENV === "development" ? "http://localhost:8787" : "")).replace(/\/$/, "");
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!apiBase) throw new Error("The route service is not configured for this build.");
   let response: Response;
   try { response = await fetch(`${apiBase}${path}`, { ...init, headers: { ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers } }); }
   catch (error) {
@@ -14,8 +15,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-export async function findPlaces(query: string, signal?: AbortSignal): Promise<PlaceSuggestion[]> {
-  const response = await request<{ places: PlaceSuggestion[] }>(`/v1/places/search?q=${encodeURIComponent(query)}`, { signal });
+export async function findPlaces(query: string, signal?: AbortSignal, bias?: Coordinates): Promise<PlaceSuggestion[]> {
+  const params = new URLSearchParams({ q: query });
+  if (bias) { params.set("lat", String(bias.lat)); params.set("lon", String(bias.lon)); }
+  const response = await request<{ places: PlaceSuggestion[] }>(`/v1/places/search?${params}`, { signal });
   return response.places;
 }
 export async function reverseGeocode(coordinates: Coordinates, signal?: AbortSignal): Promise<{ id: string; label: string; fallback: boolean; warning?: string }> {

@@ -39,7 +39,16 @@ async function handleApiRoute(request: Request, env: Env, url: URL): Promise<Res
   if (request.method === "GET" && url.pathname === "/v1/places/search") {
     const query = url.searchParams.get("q")?.trim() ?? "";
     if (query.length < 2 || query.length > 120) throw new ApiFailure(400, "INVALID_INPUT", "Enter between 2 and 120 characters to search.");
-    return Response.json({ places: await searchPlaces(env, query) });
+    const hasLat = url.searchParams.has("lat");
+    const hasLon = url.searchParams.has("lon");
+    if (hasLat !== hasLon) throw new ApiFailure(400, "INVALID_INPUT", "Provide both latitude and longitude for search bias.");
+    let bias: { lat: number; lon: number } | undefined;
+    if (hasLat && hasLon) {
+      const coordinates = { lat: Number(url.searchParams.get("lat")), lon: Number(url.searchParams.get("lon")) };
+      if (!validCoordinates(coordinates)) throw new ApiFailure(400, "INVALID_INPUT", "Provide valid latitude and longitude for search bias.");
+      bias = coordinates;
+    }
+    return Response.json({ places: await searchPlaces(env, query, bias, request.signal) });
   }
   if (request.method === "GET" && url.pathname === "/v1/places/reverse") {
     const lat = Number(url.searchParams.get("lat"));

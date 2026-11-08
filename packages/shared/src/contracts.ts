@@ -1,5 +1,15 @@
 export type Coordinates = { lat: number; lon: number };
-export type Place = { id: string; label: string; coordinates: Coordinates };
+export type Place = {
+  id: string;
+  label: string;
+  coordinates: Coordinates;
+  addressLine?: string;
+  category?: string | null;
+  city?: string | null;
+  country?: string | null;
+  source?: string;
+  confidence?: number | null;
+};
 export type FareEstimate = {
   currency: "PHP";
   min: number | null;
@@ -44,5 +54,5 @@ export type CompareResponse = {
   options: TransportOption[];
   warnings: string[];
 };
-export type PlaceSuggestion = Place & { addressLine: string };
+export type PlaceSuggestion = Place & { addressLine: string; category: string | null; source: "Geoapify"; confidence: number | null };
 export type ApiError = { error: { code: string; message: string; retryable: boolean } };

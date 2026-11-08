@@ -2,7 +2,12 @@ import type { CompareRequest, Place } from "@wandr/shared";
 import { validCoordinates } from "@wandr/shared";
 import { ApiFailure } from "./errors";
 
-const davaoBounds = { minLat: 6.85, maxLat: 7.5, minLon: 125.15, maxLon: 125.85 };
+const approximateDavaoCoverage = { minLat: 6.85, maxLat: 7.5, minLon: 125.15, maxLon: 125.85 };
+
+export function isWithinApproximateDavaoCoverage(point: { lat: number; lon: number }): boolean {
+  return point.lat >= approximateDavaoCoverage.minLat && point.lat <= approximateDavaoCoverage.maxLat
+    && point.lon >= approximateDavaoCoverage.minLon && point.lon <= approximateDavaoCoverage.maxLon;
+}
 
 export function validatePlace(value: unknown, key: string): Place {
   if (!value || typeof value !== "object") throw new ApiFailure(400, "INVALID_INPUT", `${key} must be a selected place.`);
@@ -11,9 +16,17 @@ export function validatePlace(value: unknown, key: string): Place {
     || typeof place.label !== "string" || place.label.length < 1 || place.label.length > 300
     || !validCoordinates(place.coordinates)) throw new ApiFailure(400, "INVALID_INPUT", `${key} must include a valid label and coordinates.`);
   const point = place.coordinates;
-  if (point.lat < davaoBounds.minLat || point.lat > davaoBounds.maxLat || point.lon < davaoBounds.minLon || point.lon > davaoBounds.maxLon
-    || (!/davao/i.test(place.label) && !(place.id.startsWith("gps:") && /^-?\d+(\.\d+)?, -?\d+(\.\d+)?$/.test(place.label)))) throw new ApiFailure(422, "OUTSIDE_COVERAGE", "Wandr currently supports selected places in Davao City. GPS boundary checks use an approximate area until verified city boundary data is configured.");
-  return { id: place.id, label: place.label, coordinates: { lat: point.lat, lon: point.lon } };
+  return {
+    id: place.id,
+    label: place.label,
+    coordinates: { lat: point.lat, lon: point.lon },
+    ...(typeof place.addressLine === "string" ? { addressLine: place.addressLine } : {}),
+    ...(typeof place.category === "string" || place.category === null ? { category: place.category } : {}),
+    ...(typeof place.city === "string" || place.city === null ? { city: place.city } : {}),
+    ...(typeof place.country === "string" || place.country === null ? { country: place.country } : {}),
+    ...(typeof place.source === "string" ? { source: place.source } : {}),
+    ...(typeof place.confidence === "number" && Number.isFinite(place.confidence) && place.confidence >= 0 && place.confidence <= 1 ? { confidence: place.confidence } : {}),
+  };
 }
 
 export async function readCompareRequest(request: Request): Promise<CompareRequest> {

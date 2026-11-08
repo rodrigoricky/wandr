@@ -14,7 +14,8 @@
     "test": "npm run test -w @wandr/shared && npm run test -w @wandr/api && npm run test -w @wandr/web",
     "test:e2e": "playwright test -c playwright.config.ts",
     "build:web": "npm run build -w @wandr/web",
-    "check": "npm run typecheck && npm run lint && npm test && npm run build:web"
+    "check": "npm run typecheck && npm run lint && npm test && npm run build:web:local",
+    "build:web:local": "node apps/web/scripts/build-local.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
