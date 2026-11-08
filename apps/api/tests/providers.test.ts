@@ -96,7 +96,7 @@ describe("trip comparison honesty", () => {
       origin: { id: "a", label: "A, Davao City", coordinates: { lat: 7.07, lon: 125.61 } },
       destination: { id: "b", label: "B, Davao City", coordinates: { lat: 7.08, lon: 125.62 } },
     });
-    expect(result.options.map((item) => item.mode)).toEqual(["walk", "taxi", "car_ride", "motorcycle", "jeepney"]);
+    expect(result.options.map((item) => item.providerId)).toEqual(["walk", "grab_taxi", "green_gsm_taxi", "maxim_motorcycle", "jeepney"]);
     expect(result.options[0].fare.min).toBe(0);
     expect(result.options[1].fare.status).toBe("estimated");
     expect(result.options[1].availability).toBe("estimated_demo");

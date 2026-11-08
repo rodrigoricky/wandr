@@ -26,10 +26,10 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
       origin, destination, generatedAt: "2026-11-07T00:00:00.000Z", scope: "davao_city", journeyType: "local", airports: null, airRoute: null,
       warnings: [],
       options: [
-        { id: "demo-jeepney", title: "Jeepney estimate", mode: "jeepney", providerId: "jeepney", legs: [{ mode: "drive", title: "Road-distance reference", distanceMeters: 2400, durationSeconds: 480, geometry: line, steps: [], source: "Geoapify Routing" }], fare: { currency: "PHP", min: 20, max: 20, status: "estimated", sourceName: "Demo fare model", sourceUrl: null, checkedAt: null }, totalDurationSeconds: 1_000, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo", estimate: { kind: "demo_model", modelId: "jeepney-demo", version: "1", basis: "Demo fare input", note: "Conditional estimate only; no stops or boarding directions." }, note: "Conditional fare reference only.", rankingEligible: { cheapest: true, fastest: true } },
-        { id: "demo-taxi", title: "Taxi estimate", mode: "taxi", providerId: "generic_taxi", legs: [{ mode: "drive", title: "Road-distance reference", distanceMeters: 2400, durationSeconds: 480, geometry: line, steps: [], source: "Geoapify Routing" }], fare: { currency: "PHP", min: 80, max: 100, status: "estimated", sourceName: "Demo fare model", sourceUrl: null, checkedAt: null }, totalDurationSeconds: 700, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo", estimate: { kind: "demo_model", modelId: "taxi-demo", version: "1", basis: "Demo fare input", note: "Road geometry is a distance reference only; no provider quote or vehicle availability is verified." }, note: "Road geometry is a distance reference only.", rankingEligible: { cheapest: true, fastest: true } },
-        { id: "demo-car", title: "Car ride estimate", mode: "car_ride", providerId: "generic_car", legs: [{ mode: "drive", title: "Road-distance reference", distanceMeters: 2400, durationSeconds: 480, geometry: line, steps: [], source: "Geoapify Routing" }], fare: { currency: "PHP", min: 100, max: 120, status: "estimated", sourceName: "Demo fare model", sourceUrl: null, checkedAt: null }, totalDurationSeconds: 800, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo", estimate: { kind: "demo_model", modelId: "car-demo", version: "1", basis: "Demo fare input", note: "No provider quote or vehicle availability is verified." }, note: "Road geometry is a distance reference only.", rankingEligible: { cheapest: true, fastest: true } },
-        { id: "demo-motorcycle", title: "Motorcycle estimate", mode: "motorcycle", providerId: "generic_motorcycle", legs: [{ mode: "drive", title: "Road-distance reference", distanceMeters: 2400, durationSeconds: 480, geometry: line, steps: [], source: "Geoapify Routing" }], fare: { currency: "PHP", min: 40, max: 60, status: "estimated", sourceName: "Demo fare model", sourceUrl: null, checkedAt: null }, totalDurationSeconds: 600, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo", estimate: { kind: "demo_model", modelId: "motor-demo", version: "1", basis: "Demo fare input", note: "No provider quote or vehicle availability is verified." }, note: "Road geometry is a distance reference only.", rankingEligible: { cheapest: true, fastest: true } },
+        { id: "demo-jeepney", title: "Jeepney", mode: "jeepney", providerId: "jeepney", legs: [{ mode: "drive", title: "Road-distance reference", distanceMeters: 2400, durationSeconds: 480, geometry: line, steps: [], source: "Geoapify Routing" }], fare: { currency: "PHP", min: 20, max: 20, status: "estimated", sourceName: "Demo fare model", sourceUrl: null, checkedAt: null }, totalDurationSeconds: 1_000, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo", estimate: { kind: "demo_model", modelId: "jeepney-demo", version: "1", basis: "Demo fare input", note: "Conditional estimate only; no stops or boarding directions." }, note: "Conditional fare reference only.", rankingEligible: { cheapest: true, fastest: true } },
+        { id: "demo-taxi", title: "Grab Taxi", mode: "taxi", providerId: "grab_taxi", legs: [{ mode: "drive", title: "Road-distance reference", distanceMeters: 2400, durationSeconds: 480, geometry: line, steps: [], source: "Geoapify Routing" }], fare: { currency: "PHP", min: 80, max: 100, status: "estimated", sourceName: "Demo fare model", sourceUrl: null, checkedAt: null }, totalDurationSeconds: 700, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo", estimate: { kind: "demo_model", modelId: "taxi-demo", version: "1", basis: "Demo fare input", note: "Road geometry is a distance reference only; no provider quote or vehicle availability is verified." }, note: "Road geometry is a distance reference only.", rankingEligible: { cheapest: true, fastest: true } },
+        { id: "demo-car", title: "Green GSM Taxi", mode: "taxi", providerId: "green_gsm_taxi", legs: [{ mode: "drive", title: "Road-distance reference", distanceMeters: 2400, durationSeconds: 480, geometry: line, steps: [], source: "Geoapify Routing" }], fare: { currency: "PHP", min: 100, max: 120, status: "estimated", sourceName: "Demo fare model", sourceUrl: null, checkedAt: null }, totalDurationSeconds: 800, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo", estimate: { kind: "demo_model", modelId: "car-demo", version: "1", basis: "Demo fare input", note: "No provider quote or vehicle availability is verified." }, note: "Road geometry is a distance reference only.", rankingEligible: { cheapest: true, fastest: true } },
+        { id: "demo-motorcycle", title: "Maxim Motorcycle", mode: "motorcycle", providerId: "maxim_motorcycle", legs: [{ mode: "drive", title: "Road-distance reference", distanceMeters: 2400, durationSeconds: 480, geometry: line, steps: [], source: "Geoapify Routing" }], fare: { currency: "PHP", min: 40, max: 60, status: "estimated", sourceName: "Demo fare model", sourceUrl: null, checkedAt: null }, totalDurationSeconds: 600, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo", estimate: { kind: "demo_model", modelId: "motor-demo", version: "1", basis: "Demo fare input", note: "No provider quote or vehicle availability is verified." }, note: "Road geometry is a distance reference only.", rankingEligible: { cheapest: true, fastest: true } },
       ],
     }) });
   });
@@ -58,6 +58,21 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
   await page.getByRole("button", { name: "Find routes" }).click();
 
   await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
+  for (const providerId of ["grab_taxi", "green_gsm_taxi", "maxim_motorcycle", "jeepney"]) {
+    await expect(page.locator(`.option-card[data-provider-id="${providerId}"]`)).toHaveCount(1);
+  }
+  await expect(page.getByText("Grab Taxi", { exact: true })).toBeVisible();
+  await expect(page.getByText("Green GSM Taxi", { exact: true })).toBeVisible();
+  await expect(page.getByText("Maxim Motorcycle", { exact: true })).toBeVisible();
+  await expect(page.getByText("Jeepney", { exact: true })).toBeVisible();
+  await expect(page.getByText("Car ride estimate", { exact: true })).toHaveCount(0);
+  await expect.poll(() => page.locator('.option-card[data-provider-id="grab_taxi"] img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('.option-card[data-provider-id="green_gsm_taxi"] img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('.option-card[data-provider-id="maxim_motorcycle"] img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  expect(await page.locator('.option-card[data-provider-id="grab_taxi"]').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(234, 246, 237)");
+  expect(await page.locator('.option-card[data-provider-id="green_gsm_taxi"]').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(231, 245, 242)");
+  expect(await page.locator('.option-card[data-provider-id="maxim_motorcycle"]').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(255, 240, 240)");
+  expect(await page.locator('.option-card[data-provider-id="jeepney"]').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(255, 255, 255)");
   await expect.poll(() => mapFitWarnings).toHaveLength(0);
   for (const [width, height] of [[320, 700], [375, 812], [390, 844], [430, 932], [768, 1024], [1280, 800], [844, 390]] as const) {
     await page.setViewportSize({ width, height });
@@ -88,8 +103,9 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
   await page.getByRole("button", { name: "Get there faster" }).click();
   await expect(page.getByRole("button", { name: "Get there faster" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".option-badge")).toHaveCount(1);
-  await page.getByRole("button", { name: /Taxi estimate/ }).click();
+  await page.getByRole("button", { name: /Grab Taxi/ }).click();
   await expect(page.getByRole("heading", { name: "Journey details" })).toBeVisible();
+  await expect(page.getByText("Grab Taxi", { exact: true })).toBeVisible();
   await expect(page.getByText("₱80–₱100", { exact: true })).toBeVisible();
   await expect(page.locator(".detail-metrics > div")).toHaveCount(3);
   await expect(page.locator(".journey-breakdown > li")).toHaveCount(2);
@@ -214,6 +230,67 @@ test("global named places remain selectable and show a generic international air
   await page.getByRole("button", { name: "Back to comparison" }).click();
   await page.getByRole("button", { name: "Edit trip" }).click();
   await expect(page.getByRole("button", { name: /Choose starting point, Eiffel Tower/ })).toBeVisible();
+});
+
+test("Davao to Tokyo shows both airline identities, codes, estimates, and tied ETAs honestly", async ({ page }) => {
+  const origin = { id: "davao-city-hall", label: "Davao City Hall", addressLine: "Davao City, Philippines", city: "Davao City", country: "Philippines", countryCode: "PH", coordinates: { lat: 7.064, lon: 125.608 } };
+  const destination = { id: "tokyo-tower", label: "Tokyo Tower", addressLine: "Minato City, Tokyo, Japan", city: "Tokyo", country: "Japan", countryCode: "JP", coordinates: { lat: 35.6586, lon: 139.7454 } };
+  const airports = {
+    origin: { iata: "DVO", name: "Francisco Bangoy International Airport", coordinates: { lat: 7.1255, lon: 125.6458 }, countryCode: "PH", municipality: "Davao", type: "large_airport", region: "PH-11" },
+    destination: { iata: "HND", name: "Tokyo Haneda International Airport", coordinates: { lat: 35.5494, lon: 139.7798 }, countryCode: "JP", municipality: "Tokyo", type: "large_airport", region: "JP-13" },
+  };
+  const corridor = { type: "LineString", coordinates: Array.from({ length: 21 }, (_, index) => [airports.origin.coordinates.lon + (airports.destination.coordinates.lon - airports.origin.coordinates.lon) * index / 20, airports.origin.coordinates.lat + (airports.destination.coordinates.lat - airports.origin.coordinates.lat) * index / 20]) };
+  const airline = (providerId: "philippine_airlines" | "cebu_pacific", min: number, max: number) => ({
+    id: `air-${providerId}`, title: providerId === "philippine_airlines" ? "Philippine Airlines" : "Cebu Pacific", mode: "flight", providerId,
+    legs: [{ mode: "flight", title: "Geographic air corridor", distanceMeters: 3_400_000, durationSeconds: 28_800, geometry: corridor, steps: [], source: "Wandr great-circle preview" }],
+    fare: { currency: "PHP", min, max, status: "estimated", sourceName: "Wandr distance-based demo model", sourceUrl: null, checkedAt: null },
+    totalDurationSeconds: 28_800, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo",
+    estimate: { kind: "demo_model", modelId: `air-${providerId}`, version: "1", basis: "Great-circle distance", note: "No carrier quote or schedule is supplied." }, note: null,
+    rankingEligible: { cheapest: true, fastest: true },
+  });
+  await page.route("**/v1/places/search**", async (route) => {
+    const query = new URL(route.request().url()).searchParams.get("q")?.toLowerCase() ?? "";
+    await route.fulfill({ json: { places: [query.includes("tokyo") ? destination : origin] } });
+  });
+  await page.route("**/v1/trips/compare", async (route) => route.fulfill({ json: {
+    origin, destination, generatedAt: "2026-11-08T00:00:00.000Z", scope: "international", journeyType: "international", airports,
+    airRoute: { geometry: corridor, distanceMeters: 3_400_000, durationSeconds: 28_800, source: "great_circle_preview", note: "Schematic corridor." },
+    options: [airline("philippine_airlines", 12_300, 19_600), airline("cebu_pacific", 18_500, 24_000)], warnings: [],
+  } }));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Choose starting point" }).click();
+  await page.getByRole("combobox", { name: "Starting point place search" }).fill("Davao City Hall");
+  await page.getByRole("option").click();
+  await page.getByRole("button", { name: "Choose destination" }).click();
+  await page.getByRole("combobox", { name: "Destination place search" }).fill("Tokyo Tower");
+  await page.getByRole("option").click();
+  await page.getByRole("button", { name: "Find routes" }).click();
+  await expect(page.locator('.option-card[data-provider-id="philippine_airlines"]')).toHaveCount(1);
+  await expect(page.locator('.option-card[data-provider-id="cebu_pacific"]')).toHaveCount(1);
+  await expect(page.locator(".option-card-subtitle")).toHaveText(["DVO → HND", "DVO → HND"]);
+  expect(await page.locator('.option-card[data-provider-id="philippine_airlines"]').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(255, 241, 239)");
+  expect(await page.locator('.option-card[data-provider-id="cebu_pacific"]').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(255, 246, 228)");
+  for (const providerId of ["philippine_airlines", "cebu_pacific"]) {
+    await expect.poll(() => page.locator(`.option-card[data-provider-id="${providerId}"] img`).evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  }
+  await expect(page.getByText(/reference estimate/i)).toHaveCount(0);
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.screenshot({ path: "/tmp/wandr-air-results-320x568.png" });
+  await page.getByRole("button", { name: "Get there faster" }).click();
+  await expect(page.locator(".option-badge")).toHaveCount(0);
+  await expect(page.locator(".route-map")).toHaveAttribute("data-route-kind", "air");
+  await expect(page.locator(".map-marker-airport")).toHaveCount(2);
+  await page.locator('.option-card[data-provider-id="philippine_airlines"]').click();
+  await expect(page.locator(".details-heading .provider-identity")).toContainText("Philippine Airlines");
+  await expect(page.locator(".detail-metrics > div")).toHaveCount(3);
+  await expect(page.locator(".journey-breakdown > li")).toHaveCount(2);
+  await expect(page.getByText("Departure", { exact: true })).toBeVisible();
+  await expect(page.getByText("Arrival", { exact: true })).toBeVisible();
+  await expect(page.getByText("Geographic air corridor", { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: "/tmp/wandr-air-details-320x568.png" });
+  const tiles = await page.locator(".detail-metrics > div").evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().top));
+  expect(new Set(tiles).size).toBe(1);
+  await expect(page.locator(".detail-metrics strong").first()).toHaveAttribute("aria-label", "₱12,300–₱19,600");
 });
 
 test("an unresolved airport pair shows one recoverable message and keeps selected places", async ({ page }) => {

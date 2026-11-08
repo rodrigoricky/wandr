@@ -1,20 +1,27 @@
-import { Bike, CarFront, CarTaxiFront, Footprints, Plane } from "lucide-react";
+import Image from "next/image";
+import { Footprints, Plane } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ProviderId } from "@wandr/shared";
-import { providerNames } from "@wandr/shared";
+import { providerMetadata } from "@wandr/shared";
 import { JeepneyIcon } from "./JeepneyIcon";
 
 const iconFor: Record<ProviderId, ReactNode> = {
   walk: <Footprints size={20} aria-hidden="true"/>,
   jeepney: <JeepneyIcon/>,
-  generic_taxi: <CarTaxiFront size={20} aria-hidden="true"/>,
-  generic_motorcycle: <Bike size={20} aria-hidden="true"/>,
-  generic_car: <CarFront size={20} aria-hidden="true"/>,
-  philippine_airlines: <Plane size={20} aria-hidden="true"/>,
-  cebu_pacific: <Plane size={20} aria-hidden="true"/>,
+  grab_taxi: null,
+  green_gsm_taxi: null,
+  maxim_motorcycle: null,
+  philippine_airlines: null,
+  cebu_pacific: null,
   generic_air: <Plane size={20} aria-hidden="true"/>,
 };
 
 export function ProviderIdentity({ providerId }: { providerId: ProviderId }) {
-  return <span className="provider-identity"><span className={`provider-mark provider-mark-${providerId}`} aria-hidden="true">{iconFor[providerId]}</span><span className="provider-name">{providerNames[providerId]}</span></span>;
+  const provider = providerMetadata[providerId];
+  return <span className={`provider-identity provider-identity-${providerId}`} data-provider-id={providerId}>
+    <span className={`provider-mark provider-mark-${providerId}`} style={{ backgroundColor: provider.accent }}>
+      {provider.localSvgPath ? <Image className={`provider-logo provider-logo-${providerId}`} src={provider.localSvgPath} alt={`${provider.name} logo`} width={120} height={48} unoptimized/> : <span aria-hidden="true">{iconFor[providerId]}</span>}
+    </span>
+    <span className="provider-name">{provider.name}</span>
+  </span>;
 }

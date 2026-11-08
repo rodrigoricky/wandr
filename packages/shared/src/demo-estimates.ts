@@ -1,4 +1,4 @@
-import type { JourneyType, ProviderId, TransportOption } from "./contracts";
+import type { JourneyType, ProviderId, ProviderMetadata, TransportOption } from "./contracts";
 
 export const DEMO_ESTIMATE_VERSION = "wandr-demo-estimates-1.0.0";
 
@@ -27,12 +27,12 @@ export function estimateJeepneyFare(roadDistanceMeters: number, modern = false):
   return Math.round((base + Math.max(0, chargedKm - baseKm) * perKm) * 100) / 100;
 }
 
-export type RoadEstimateMode = "taxi" | "motorcycle" | "car_ride";
+export type RoadEstimateMode = "grab_taxi" | "green_gsm_taxi" | "maxim_motorcycle";
 
 const roadModels: Record<RoadEstimateMode, { flagDown: number; perKm: number; perMinute: number; spread: number }> = {
-  taxi: { flagDown: 65, perKm: 13.5, perMinute: 2, spread: 0.12 },
-  motorcycle: { flagDown: 30, perKm: 9, perMinute: 0.6, spread: 0.16 },
-  car_ride: { flagDown: 55, perKm: 16, perMinute: 1.6, spread: 0.16 },
+  grab_taxi: { flagDown: 70, perKm: 15, perMinute: 2.5, spread: 0.12 },
+  green_gsm_taxi: { flagDown: 65, perKm: 13.5, perMinute: 2, spread: 0.12 },
+  maxim_motorcycle: { flagDown: 30, perKm: 9, perMinute: 0.6, spread: 0.16 },
 };
 
 export function estimateRoadFare(mode: RoadEstimateMode, roadDistanceMeters: number, roadSeconds: number): DemoFare {
@@ -41,11 +41,11 @@ export function estimateRoadFare(mode: RoadEstimateMode, roadDistanceMeters: num
   return estimateBand(amount, model.spread);
 }
 
-export function estimateRoadDuration(mode: Exclude<RoadEstimateMode, "taxi"> | "taxi", roadSeconds: number): number {
+export function estimateRoadDuration(mode: RoadEstimateMode, roadSeconds: number): number {
   const factors: Record<RoadEstimateMode, { factor: number; allowanceSeconds: number }> = {
-    taxi: { factor: 1.08, allowanceSeconds: 240 },
-    motorcycle: { factor: 1.02, allowanceSeconds: 300 },
-    car_ride: { factor: 1.1, allowanceSeconds: 360 },
+    grab_taxi: { factor: 1.08, allowanceSeconds: 240 },
+    green_gsm_taxi: { factor: 1.08, allowanceSeconds: 240 },
+    maxim_motorcycle: { factor: 1.02, allowanceSeconds: 300 },
   };
   const model = factors[mode];
   // The five-minute bucket is a demo convention, not a provider pickup-time promise.
@@ -112,13 +112,17 @@ export function sortTransportOptions(options: readonly TransportOption[], sort: 
   });
 }
 
-export const providerNames: Record<ProviderId, string> = {
-  walk: "Walk",
-  jeepney: "Jeepney",
-  generic_taxi: "Taxi",
-  generic_motorcycle: "Motorcycle",
-  generic_car: "Car",
-  philippine_airlines: "Philippine Airlines",
-  cebu_pacific: "Cebu Pacific",
-  generic_air: "Air journey",
+export const providerMetadata: Record<ProviderId, ProviderMetadata> = {
+  walk: { name: "Walk", transportationClass: "walking", localSvgPath: null, accent: "#ffffff" },
+  jeepney: { name: "Jeepney", transportationClass: "public_transport", localSvgPath: null, accent: "#ffffff" },
+  grab_taxi: { name: "Grab Taxi", transportationClass: "taxi", localSvgPath: "/brands/grab.svg", accent: "#EAF6ED" },
+  green_gsm_taxi: { name: "Green GSM Taxi", transportationClass: "taxi", localSvgPath: "/brands/green-gsm.svg", accent: "#E7F5F2" },
+  maxim_motorcycle: { name: "Maxim Motorcycle", transportationClass: "motorcycle", localSvgPath: "/brands/maxim.svg", accent: "#FFF0F0" },
+  philippine_airlines: { name: "Philippine Airlines", transportationClass: "airline", localSvgPath: "/brands/philippine-airlines.svg", accent: "#FFF1EF" },
+  cebu_pacific: { name: "Cebu Pacific", transportationClass: "airline", localSvgPath: "/brands/cebu-pacific.svg", accent: "#FFF6E4" },
+  generic_air: { name: "Air journey", transportationClass: "airline", localSvgPath: null, accent: "#ffffff" },
 };
+
+export const providerNames: Record<ProviderId, string> = Object.fromEntries(
+  Object.entries(providerMetadata).map(([id, metadata]) => [id, metadata.name]),
+) as Record<ProviderId, string>;

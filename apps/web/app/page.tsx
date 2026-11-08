@@ -8,6 +8,7 @@ import type { CompareResponse, Place, PlaceSuggestion, TransportOption } from "@
 import { LocationPicker } from "@/components/search/LocationPicker";
 import { PhoneShell } from "@/components/shell/PhoneShell";
 import { TransportOptionCard } from "@/components/results/TransportOptionCard";
+import { ProviderIdentity } from "@/components/results/ProviderIdentity";
 import { compareTrip, reverseGeocode } from "@/lib/api-client";
 import { formatDistance, formatDuration, fareLabel, fullFareLabel } from "@/lib/formatting";
 
@@ -25,6 +26,13 @@ function comparisonNotice(data: CompareResponse, sort: SortMode, options: Transp
   if (data.warnings.some((warning) => warning.includes("No verified Davao public-transport routes"))) return "Public-transport routes and fares unavailable.";
   if (data.warnings.some((warning) => warning.includes("short-walk comparison limit"))) return "Walking is too long to recommend for this trip.";
   return null;
+}
+
+function isUniqueRankWinner(options: TransportOption[], option: TransportOption, sort: SortMode): boolean {
+  if (!isOptionRankable(option, sort)) return false;
+  const value = sort === "cheapest" ? option.fare.min : option.totalDurationSeconds;
+  return options.filter((candidate) => isOptionRankable(candidate, sort)
+    && (sort === "cheapest" ? candidate.fare.min : candidate.totalDurationSeconds) === value).length === 1;
 }
 
 export default function Home() {
@@ -195,13 +203,13 @@ export default function Home() {
           {resultNotice && <p className="inline-status" role="status">{resultNotice}</p>}
         </div>
         <div className="option-list-scroll" role="region" aria-label="Transport options" tabIndex={0}>
-          {sortedOptions.length > 0 ? <div className="option-list">{sortedOptions.map((option, index) => <TransportOptionCard key={option.id} option={option} airportCodes={option.mode === "flight" && screen.data.airports ? `${screen.data.airports.origin.iata} → ${screen.data.airports.destination.iata}` : undefined} badge={index === 0 && isOptionRankable(option, screen.sort) ? (screen.sort === "cheapest" ? "Lowest fare" : "Fastest") : undefined} badgeKind={screen.sort === "fastest" ? "fastest" : "money"} onSelect={() => pushScreen({ ...screen, kind: "details", optionId: option.id })}/>)}</div> : <div className="empty-state" role="status"><p>{screen.data.warnings[0] ?? (screen.data.scope === "unsupported" ? "This journey is outside Wandr’s current transport-comparison coverage." : "No supported routes were returned for this trip.")}</p></div>}
+          {sortedOptions.length > 0 ? <div className="option-list">{sortedOptions.map((option, index) => <TransportOptionCard key={option.id} option={option} airportCodes={option.mode === "flight" && screen.data.airports ? `${screen.data.airports.origin.iata} → ${screen.data.airports.destination.iata}` : undefined} badge={index === 0 && isUniqueRankWinner(sortedOptions, option, screen.sort) ? (screen.sort === "cheapest" ? "Lowest fare" : "Fastest") : undefined} badgeKind={screen.sort === "fastest" ? "fastest" : "money"} onSelect={() => pushScreen({ ...screen, kind: "details", optionId: option.id })}/>)}</div> : <div className="empty-state" role="status"><p>{screen.data.warnings[0] ?? (screen.data.scope === "unsupported" ? "This journey is outside Wandr’s current transport-comparison coverage." : "No supported routes were returned for this trip.")}</p></div>}
         </div>
       </section>}
 
       {screen.kind === "details" && selectedOption && <section className="sheet sheet-details" aria-label="Route details">
         <div className="sheet-grabber" aria-hidden="true" />
-        <header className="details-heading"><button type="button" className="icon-button" onClick={() => backTo({ kind: "results", data: screen.data, sort: screen.sort })} aria-label="Back to comparison"><ArrowLeft size={19}/></button><div><h1>Journey details</h1><p>{selectedOption.title}</p></div></header>
+        <header className="details-heading"><button type="button" className="icon-button" onClick={() => backTo({ kind: "results", data: screen.data, sort: screen.sort })} aria-label="Back to comparison"><ArrowLeft size={19}/></button><div><h1>Journey details</h1><ProviderIdentity providerId={selectedOption.providerId}/></div></header>
         <div className="detail-metrics"><div><span>Fare</span><strong aria-label={fullFareLabel(selectedOption)}>{fareLabel(selectedOption)}</strong></div><div><span>ETA</span><strong>{formatDuration(selectedOption.totalDurationSeconds)}</strong></div><div><span>Distance</span><strong>{selectedOption.mode === "walk" ? formatDistance(selectedOption.totalWalkingMeters) : formatDistance(selectedOption.legs.reduce<number | null>((sum, leg) => sum === null || leg.distanceMeters === null ? null : sum + leg.distanceMeters, 0))}</strong></div></div>
         {selectedOption.mode === "flight" && screen.data.airports ? <ol className="journey-breakdown" aria-label="Airport journey"><li><span className="journey-step-icon">{screen.data.airports.origin.iata}</span><span><small>Departure</small><strong>{screen.data.airports.origin.name}</strong></span></li><li><span className="journey-step-icon">{screen.data.airports.destination.iata}</span><span><small>Arrival</small><strong>{screen.data.airports.destination.name}</strong></span></li></ol> : <ol className="journey-breakdown" aria-label="Journey endpoints"><li><span className="journey-step-icon">A</span><span><small>From</small><strong>{screen.data.origin.label}</strong></span></li><li><span className="journey-step-icon">B</span><span><small>To</small><strong>{screen.data.destination.label}</strong></span></li></ol>}
       </section>}

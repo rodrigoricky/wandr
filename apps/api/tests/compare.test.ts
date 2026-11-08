@@ -23,10 +23,12 @@ describe("local estimated transportation options", () => {
     const result = await compare({}, request);
     const repeated = await compare({}, { origin: { ...request.origin, label: "a" }, destination: { ...request.destination, label: "b" } });
     expect(result.journeyType).toBe("local");
-    expect(result.options.map((option) => option.mode)).toEqual(["walk", "taxi", "car_ride", "motorcycle", "jeepney"]);
+    expect(result.options.map((option) => option.providerId)).toEqual(["walk", "grab_taxi", "green_gsm_taxi", "maxim_motorcycle", "jeepney"]);
     expect(result.options.filter((option) => option.mode !== "walk").every((option) => option.availability === "estimated_demo"
       && option.fare.status === "estimated" && option.estimate?.kind === "demo_model" && option.estimate.version)).toBe(true);
-    expect(result.options.find((option) => option.mode === "taxi")?.providerId).toBe("generic_taxi");
+    const taxis = result.options.filter((option) => option.mode === "taxi");
+    expect(taxis.map((option) => option.providerId)).toEqual(["grab_taxi", "green_gsm_taxi"]);
+    expect(taxis[0].fare.min).not.toBe(taxis[1].fare.min);
     expect(repeated.options.map((option) => [option.mode, option.fare.min, option.fare.max, option.totalDurationSeconds]))
       .toEqual(result.options.map((option) => [option.mode, option.fare.min, option.fare.max, option.totalDurationSeconds]));
     expect(result.options.find((option) => option.id === "drive")).toBeUndefined();
@@ -37,7 +39,7 @@ describe("local estimated transportation options", () => {
     vi.mocked(route).mockImplementation(async (_env, mode) => mode === "walk" ? leg(mode, 2_001, 1_000) : leg(mode, 5_000, 600));
     const result = await compare({}, request);
     expect(result.options.some((option) => option.mode === "walk")).toBe(false);
-    expect(result.options.some((option) => option.mode === "taxi")).toBe(true);
+    expect(result.options.filter((option) => option.mode === "taxi")).toHaveLength(2);
     expect(result.options.some((option) => option.mode === "motorcycle")).toBe(true);
   });
 

@@ -1,5 +1,5 @@
-import type { CompareRequest, CompareResponse, OptionMode, TransportOption } from "@wandr/shared";
-import { DEMO_ESTIMATE_VERSION, estimateJeepneyFare, estimateRoadDuration, estimateRoadFare } from "@wandr/shared";
+import type { CompareRequest, CompareResponse, OptionMode, ProviderId, TransportOption } from "@wandr/shared";
+import { DEMO_ESTIMATE_VERSION, estimateJeepneyFare, estimateRoadDuration, estimateRoadFare, providerNames } from "@wandr/shared";
 import { ApiFailure } from "../lib/errors";
 import { route } from "../providers/geoapify";
 import type { Env } from "../types";
@@ -20,29 +20,27 @@ function estimatedFare(min: number, max: number, sourceName: string, sourceUrl: 
 }
 
 function roadEstimate(
-  mode: Exclude<OptionMode, "walk" | "flight" | "jeepney">,
-  title: string,
-  providerId: "generic_taxi" | "generic_motorcycle" | "generic_car",
+  providerId: Extract<ProviderId, "grab_taxi" | "green_gsm_taxi" | "maxim_motorcycle">,
   roadLegs: TransportOption["legs"],
   distance: number,
   duration: number,
 ): TransportOption {
-  const fare = estimateRoadFare(mode, distance, duration);
-  const totalDurationSeconds = estimateRoadDuration(mode, duration);
-  const names = { taxi: "Taxi demo model", motorcycle: "Motorcycle demo model", car_ride: "Car-ride demo model" };
+  const mode: Extract<OptionMode, "taxi" | "motorcycle"> = providerId === "maxim_motorcycle" ? "motorcycle" : "taxi";
+  const fare = estimateRoadFare(providerId, distance, duration);
+  const totalDurationSeconds = estimateRoadDuration(providerId, duration);
   const assumptions = {
-    taxi: "Reported 2026 regular-taxi ₱65 flag-down, ₱13.50/km and ₱2/min rates; applying them to a routed road estimate does not verify a fare, meter, vehicle or availability.",
-    motorcycle: "Demo-only ₱30 base, ₱9/km, and ₱0.60/min assumptions; no provider, vehicle, availability, or quote is verified.",
-    car_ride: "Demo-only ₱55 base, ₱16/km, and ₱1.60/min assumptions; no provider, vehicle, availability, or quote is verified.",
+    grab_taxi: "Wandr demo coefficients: ₱70 base, ₱15/km, and ₱2.50/min. No Grab quote, driver, vehicle, availability, or service is verified.",
+    green_gsm_taxi: "Wandr demo coefficients: ₱65 base, ₱13.50/km, and ₱2/min. No Green GSM quote, driver, vehicle, availability, or service is verified.",
+    maxim_motorcycle: "Wandr demo coefficients: ₱30 base, ₱9/km, and ₱0.60/min. No Maxim quote, driver, vehicle, availability, or service is verified.",
   };
   return {
-    id: `demo-${mode}`, title, mode, providerId, legs: roadLegs,
-    fare: estimatedFare(fare.min, fare.max, names[mode], mode === "taxi" ? "https://ptvnews.ph/ltfrb-releases-new-matrices-for-puv-fare-hikes-effective-sept-28/" : null, mode === "taxi" ? "2026-09-28" : null),
+    id: `demo-${providerId}`, title: providerNames[providerId], mode, providerId, legs: roadLegs,
+    fare: estimatedFare(fare.min, fare.max, `Wandr ${providerNames[providerId]} demo model`),
     totalDurationSeconds,
     totalWalkingMeters: 0,
     transfers: null,
     availability: "estimated_demo",
-    estimate: { kind: "demo_model", modelId: `local-${mode}`, version: DEMO_ESTIMATE_VERSION, basis: "Geoapify driving distance/time with centralized demo pricing assumptions.", note: assumptions[mode] },
+    estimate: { kind: "demo_model", modelId: `local-${providerId}`, version: DEMO_ESTIMATE_VERSION, basis: "Geoapify driving distance/time with deterministic Wandr demo coefficients; not an operator quote.", note: assumptions[providerId] },
     note: "Geoapify road geometry is a map reference only. This is not a verified passenger route or pickup/drop-off estimate.",
     rankingEligible: { cheapest: true, fastest: true },
   };
@@ -52,7 +50,7 @@ function jeepneyEstimate(roadLegs: TransportOption["legs"], distance: number, du
   const fare = estimateJeepneyFare(distance);
   const totalDurationSeconds = Math.ceil((duration * 1.45 + 300) / 300) * 300;
   return {
-    id: "demo-jeepney", title: "Jeepney estimate", mode: "jeepney", providerId: "jeepney", legs: roadLegs,
+    id: "demo-jeepney", title: "Jeepney", mode: "jeepney", providerId: "jeepney", legs: roadLegs,
     fare: estimatedFare(fare, fare, "Reported 2026 PUJ rate · demo distance input", "https://ptvnews.ph/ltfrb-releases-new-matrices-for-puv-fare-hikes-effective-sept-28/", "2026-09-28"),
     totalDurationSeconds,
     totalWalkingMeters: 0,
@@ -97,9 +95,9 @@ export async function compareLocal(env: Env, request: CompareRequest, signal?: A
     const totals = routeTotals(roadLegs);
     if (totals.distance !== null && totals.duration !== null && totals.distance > 0 && totals.duration > 0) {
       options.push(
-        roadEstimate("taxi", "Taxi estimate", "generic_taxi", roadLegs, totals.distance, totals.duration),
-        roadEstimate("car_ride", "Car ride estimate", "generic_car", roadLegs, totals.distance, totals.duration),
-        roadEstimate("motorcycle", "Motorcycle estimate", "generic_motorcycle", roadLegs, totals.distance, totals.duration),
+        roadEstimate("grab_taxi", roadLegs, totals.distance, totals.duration),
+        roadEstimate("green_gsm_taxi", roadLegs, totals.distance, totals.duration),
+        roadEstimate("maxim_motorcycle", roadLegs, totals.distance, totals.duration),
       );
       if (totals.distance <= JEEPNEY_MAX_DISTANCE_METERS) options.push(jeepneyEstimate(roadLegs, totals.distance, totals.duration));
     }

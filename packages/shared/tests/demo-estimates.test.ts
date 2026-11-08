@@ -7,6 +7,7 @@ import {
   estimateRoadDuration,
   estimateRoadFare,
   isOptionRankable,
+  providerMetadata,
   providerNames,
   sortTransportOptions,
 } from "../src";
@@ -16,7 +17,7 @@ const inDavao = (point: { lat: number; lon: number }) => point.lat > 6.8 && poin
 
 function option(id: string, fare: number | null, seconds: number | null, eligible: boolean): TransportOption {
   return {
-    id, title: id, mode: "taxi", providerId: "generic_taxi", legs: [],
+    id, title: id, mode: "taxi", providerId: "grab_taxi", legs: [],
     fare: { currency: "PHP", min: fare, max: fare, status: fare === null ? "unknown" : "estimated", sourceName: null, sourceUrl: null, checkedAt: null },
     totalDurationSeconds: seconds, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo",
     note: null, rankingEligible: { cheapest: eligible, fastest: eligible },
@@ -47,21 +48,21 @@ describe("deterministic demo estimates", () => {
     expect(estimateJeepneyFare(-1)).toBe(14);
   });
 
-  it("uses separate stable taxi, motorcycle and car estimate models", () => {
-    const taxi = estimateRoadFare("taxi", 5_000, 600);
-    const motor = estimateRoadFare("motorcycle", 5_000, 600);
-    const car = estimateRoadFare("car_ride", 5_000, 600);
-    expect(taxi.min).toBeGreaterThan(motor.min);
-    expect(car.min).toBeGreaterThan(motor.min);
-    expect(`${taxi.min}-${taxi.max}`).not.toBe(`${car.min}-${car.max}`);
-    expect(`${motor.min}-${motor.max}`).not.toBe(`${car.min}-${car.max}`);
-    for (const result of [estimateRoadFare("taxi", Number.NaN, Number.POSITIVE_INFINITY), estimateRoadFare("motorcycle", -1, -1)]) {
+  it("uses distinct, deterministic taxi and motorcycle demo models", () => {
+    const grab = estimateRoadFare("grab_taxi", 5_000, 600);
+    const green = estimateRoadFare("green_gsm_taxi", 5_000, 600);
+    const maxim = estimateRoadFare("maxim_motorcycle", 5_000, 600);
+    expect(grab.min).toBeGreaterThan(maxim.min);
+    expect(green.min).toBeGreaterThan(maxim.min);
+    expect(`${grab.min}-${grab.max}`).not.toBe(`${green.min}-${green.max}`);
+    expect(`${maxim.min}-${maxim.max}`).toBe(`${estimateRoadFare("maxim_motorcycle", 5_000, 600).min}-${estimateRoadFare("maxim_motorcycle", 5_000, 600).max}`);
+    for (const result of [estimateRoadFare("grab_taxi", Number.NaN, Number.POSITIVE_INFINITY), estimateRoadFare("maxim_motorcycle", -1, -1)]) {
       expect(Number.isFinite(result.min) && Number.isFinite(result.max) && result.min >= 0 && result.max >= result.min).toBe(true);
     }
   });
 
   it("rounds modeled times into five-minute bands and air estimates use a bounded planning allowance", () => {
-    expect(estimateRoadDuration("taxi", 0) % 300).toBe(0);
+    expect(estimateRoadDuration("grab_taxi", 0) % 300).toBe(0);
     expect(estimateAirDuration(0)).toBe(7_200);
     expect(estimateAirDuration(1_000_000)).toBeGreaterThan(7_200);
   });
@@ -89,8 +90,16 @@ describe("deterministic demo estimates", () => {
   });
 
   it("has concise text identities for every supported provider", () => {
-    expect(Object.keys(providerNames).sort()).toEqual(["cebu_pacific", "generic_air", "generic_car", "generic_motorcycle", "generic_taxi", "jeepney", "philippine_airlines", "walk"].sort());
+    expect(Object.keys(providerNames).sort()).toEqual(["cebu_pacific", "generic_air", "grab_taxi", "green_gsm_taxi", "jeepney", "maxim_motorcycle", "philippine_airlines", "walk"].sort());
+    expect(providerNames.grab_taxi).toBe("Grab Taxi");
+    expect(providerNames.green_gsm_taxi).toBe("Green GSM Taxi");
+    expect(providerNames.maxim_motorcycle).toBe("Maxim Motorcycle");
     expect(providerNames.philippine_airlines).toBe("Philippine Airlines");
     expect(providerNames.cebu_pacific).toBe("Cebu Pacific");
+    expect(providerMetadata.grab_taxi).toMatchObject({ transportationClass: "taxi", localSvgPath: "/brands/grab.svg", accent: "#EAF6ED" });
+    expect(providerMetadata.green_gsm_taxi).toMatchObject({ transportationClass: "taxi", localSvgPath: "/brands/green-gsm.svg", accent: "#E7F5F2" });
+    expect(providerMetadata.maxim_motorcycle).toMatchObject({ transportationClass: "motorcycle", localSvgPath: "/brands/maxim.svg", accent: "#FFF0F0" });
+    expect(providerMetadata.philippine_airlines.localSvgPath).toBe("/brands/philippine-airlines.svg");
+    expect(providerMetadata.cebu_pacific.localSvgPath).toBe("/brands/cebu-pacific.svg");
   });
 });

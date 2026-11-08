@@ -28,8 +28,10 @@ export type GeoLine = { type: "LineString"; coordinates: [number, number][] };
 export type GeoGeometry = GeoLine | { type: "MultiLineString"; coordinates: [number, number][][] };
 export type RouteStep = { instruction: string; distanceMeters: number | null; durationSeconds: number | null };
 export type TravelMode = "walk" | "drive";
-export type OptionMode = "walk" | "jeepney" | "taxi" | "motorcycle" | "car_ride" | "flight";
-export type ProviderId = "walk" | "jeepney" | "generic_taxi" | "generic_motorcycle" | "generic_car" | "philippine_airlines" | "cebu_pacific" | "generic_air";
+export type OptionMode = "walk" | "jeepney" | "taxi" | "motorcycle" | "flight";
+export type ProviderId = "walk" | "jeepney" | "grab_taxi" | "green_gsm_taxi" | "maxim_motorcycle" | "philippine_airlines" | "cebu_pacific" | "generic_air";
+export type ProviderClass = "walking" | "public_transport" | "taxi" | "motorcycle" | "airline";
+export type ProviderMetadata = { name: string; transportationClass: ProviderClass; localSvgPath: string | null; accent: string };
 export type JourneyType = "local" | "domestic_long_distance" | "international" | "unsupported";
 export type RouteLeg = {
   mode: TravelMode | "flight";
