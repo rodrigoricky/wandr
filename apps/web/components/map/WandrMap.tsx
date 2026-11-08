@@ -53,6 +53,7 @@ type MapState =
   | { status: "ready"; provider: "openfreemap" | "openstreetmap" }
   | { status: "degraded"; provider: "openfreemap" | "openstreetmap"; message: string }
   | { status: "failed"; message: string };
+type InitialOverlayPhase = "waiting" | "visible" | "fading" | "hidden";
 
 type Props = {
   origin?: Coordinates | null;
@@ -72,7 +73,43 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
   const [mapState, setMapState] = useState<MapState>({ status: "initializing" });
   const mapStateRef = useRef<MapState>({ status: "initializing" });
   const [styleRevision, setStyleRevision] = useState(0);
+  const [initialOverlayPhase, setInitialOverlayPhase] = useState<InitialOverlayPhase>("waiting");
+  const initialOverlayPhaseRef = useRef<InitialOverlayPhase>("waiting");
+  const initialOutcomeRef = useRef(false);
+  const initialThresholdTimer = useRef<number | undefined>(undefined);
+  const initialDismissTimer = useRef<number | undefined>(undefined);
+  const setOverlayPhase = (next: InitialOverlayPhase) => {
+    initialOverlayPhaseRef.current = next;
+    setInitialOverlayPhase(next);
+  };
+  const dismissInitialOverlay = () => {
+    if (initialOverlayPhaseRef.current !== "visible") {
+      setOverlayPhase("hidden");
+      return;
+    }
+    setOverlayPhase("fading");
+    const duration = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220;
+    if (initialDismissTimer.current !== undefined) window.clearTimeout(initialDismissTimer.current);
+    initialDismissTimer.current = window.setTimeout(() => setOverlayPhase("hidden"), duration);
+  };
+  const finishInitialMapState = () => {
+    if (initialOutcomeRef.current) return;
+    initialOutcomeRef.current = true;
+    if (initialThresholdTimer.current !== undefined) window.clearTimeout(initialThresholdTimer.current);
+    initialThresholdTimer.current = undefined;
+    dismissInitialOverlay();
+  };
+  useEffect(() => {
+    initialThresholdTimer.current = window.setTimeout(() => {
+      if (!initialOutcomeRef.current) setOverlayPhase("visible");
+    }, 275);
+    return () => {
+      if (initialThresholdTimer.current !== undefined) window.clearTimeout(initialThresholdTimer.current);
+      if (initialDismissTimer.current !== undefined) window.clearTimeout(initialDismissTimer.current);
+    };
+  }, []);
   const updateMapState = (next: MapState) => {
+    if (next.status === "ready" || next.status === "degraded" || next.status === "failed") finishInitialMapState();
     mapStateRef.current = next;
     setMapState(next);
   };
@@ -325,6 +362,7 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
 
   return <div className="map-layer">
     <div className="route-map" ref={container} data-map-ready={mapState.status === "ready" || mapState.status === "degraded" ? "true" : "false"} data-map-provider={mapState.status === "ready" || mapState.status === "degraded" ? mapState.provider : "loading"} data-route-kind={routeKind} aria-label="Interactive map showing selected places and provider route geometry" role="region" />
+    {(initialOverlayPhase === "visible" || initialOverlayPhase === "fading") && <div className={`map-loading-overlay${initialOverlayPhase === "fading" ? " is-fading" : ""}`} role="status" aria-label="Loading map"><img src="/logo.png" alt="" /></div>}
     {(mapState.status === "degraded" || mapState.status === "failed") && <div className="map-error" role="status">{mapState.message}</div>}
   </div>;
 }

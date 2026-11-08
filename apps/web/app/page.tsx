@@ -13,7 +13,7 @@ import { compareTrip } from "@/lib/api-client";
 import { formatDistance, formatDuration, fareLabel, fullFareLabel } from "@/lib/formatting";
 import { adduJacintoDemoStart } from "@wandr/shared";
 
-const WandrMap = dynamic(() => import("@/components/map/WandrMap"), { ssr: false, loading: () => <div className="map-loading" role="status">Loading map…</div> });
+const WandrMap = dynamic(() => import("@/components/map/WandrMap"), { ssr: false, loading: () => <div className="map-loading" aria-hidden="true" /> });
 const demoCampusShortcut = process.env.NEXT_PUBLIC_WANDR_DEMO_MODE !== "false";
 
 type SortMode = "cheapest" | "fastest";

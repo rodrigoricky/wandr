@@ -54,6 +54,69 @@ test("production basemap resources render actual pixels and resize without losin
   }
 });
 
+test("the supplied logo asset is served and the initial overlay clears on a usable map", async ({ page }) => {
+  const asset = await page.request.get("/logo.png");
+  expect(asset.status()).toBe(200);
+  expect(asset.headers()["content-type"]).toContain("image/png");
+  expect((await asset.body()).byteLength).toBeGreaterThan(100_000);
+
+  await page.goto("/");
+  await expect(page.locator('.route-map[data-map-ready="true"]')).toHaveAttribute("data-map-provider", "openfreemap", { timeout: 25_000 });
+  await expect(page.locator(".map-loading-overlay")).toHaveCount(0);
+});
+
+test("slow cold map loads reveal the logo after the threshold and fade it after first usable state", async ({ page }) => {
+  test.setTimeout(40_000);
+  await page.route("https://tiles.openfreemap.org/styles/positron", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    const response = await route.fetch();
+    await route.fulfill({ response });
+  });
+  await page.goto("/");
+  await page.waitForTimeout(120);
+  await expect(page.locator(".map-loading-overlay")).toHaveCount(0);
+  await expect(page.locator(".map-loading-overlay")).toBeVisible({ timeout: 2_000 });
+  await expect(page.locator(".map-loading-overlay img")).toHaveAttribute("src", "/logo.png");
+  await expect.poll(() => page.locator(".map-loading-overlay img").evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await expect(page.locator('.route-map[data-map-ready="true"]')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator(".map-loading-overlay")).toHaveCount(0, { timeout: 2_000 });
+});
+
+test("reduced motion removes the overlay fade transition and repeated map updates do not replay it", async ({ page }) => {
+  test.setTimeout(40_000);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.route("https://tiles.openfreemap.org/styles/positron", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    const response = await route.fetch();
+    await route.fulfill({ response });
+  });
+  await page.goto("/");
+  await expect(page.locator(".map-loading-overlay")).toBeVisible({ timeout: 2_000 });
+  await expect(page.locator(".map-loading-overlay")).toHaveCSS("transition-duration", "0s");
+  await expect(page.locator('.route-map[data-map-ready="true"]')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator(".map-loading-overlay")).toHaveCount(0, { timeout: 2_000 });
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await page.waitForTimeout(400);
+  await expect(page.locator(".map-loading-overlay")).toHaveCount(0);
+});
+
+test("when both map providers fail, the failure state clears the logo overlay", async ({ page }) => {
+  test.setTimeout(45_000);
+  const fallbackTileStatuses: number[] = [];
+  await page.route("https://tiles.openfreemap.org/styles/positron", async (route) => {
+    await route.fulfill({ status: 503, contentType: "text/plain", body: "simulated primary outage" });
+  });
+  await page.route("https://tile.openstreetmap.org/**/*.png", async (route) => {
+    fallbackTileStatuses.push(503);
+    await route.fulfill({ status: 503, contentType: "image/png", body: "" });
+  });
+  await page.goto("/");
+  await expect(page.locator('.route-map[data-map-provider="openstreetmap"]')).toHaveAttribute("data-map-ready", "true", { timeout: 35_000 });
+  await expect(page.getByRole("status").filter({ hasText: /Using backup map tiles|Map tiles are unavailable/ })).toBeVisible();
+  expect(fallbackTileStatuses.length).toBeGreaterThan(0);
+  await expect(page.locator(".map-loading-overlay")).toHaveCount(0);
+});
+
 test("a sprite request failure leaves the usable primary map visible", async ({ page }) => {
   await retainWebGlPixels(page);
   const failedSprites: number[] = [];
