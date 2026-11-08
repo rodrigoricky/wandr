@@ -1,0 +1,30 @@
+{
+  "name": "wandr",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "apps/api",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @wandr/web",
+    "dev:api": "npm run dev -w @wandr/api",
+    "typecheck": "npm run typecheck -w @wandr/shared && npm run typecheck -w @wandr/api && npm run typecheck -w @wandr/web",
+    "lint": "npm run lint -w @wandr/shared && npm run lint -w @wandr/api && npm run lint -w @wandr/web",
+    "test": "npm run test -w @wandr/shared && npm run test -w @wandr/api && npm run test -w @wandr/web",
+    "test:e2e": "playwright test -c playwright.config.ts",
+    "build:web": "npm run build -w @wandr/web",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build:web"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "^1.65.0",
+    "@typescript-eslint/parser": "^8.72.1",
+    "eslint": "10.14.0",
+    "globals": "^16.0.0",
+    "typescript": "6.0.3"
+  },
+  "overrides": {
+    "minimatch": "11.0.5"
+  }
+}

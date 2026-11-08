@@ -1,0 +1,33 @@
+import type { CompareRequest, Place } from "@wandr/shared";
+import { validCoordinates } from "@wandr/shared";
+import { ApiFailure } from "./errors";
+
+const davaoBounds = { minLat: 6.85, maxLat: 7.5, minLon: 125.15, maxLon: 125.85 };
+
+export function validatePlace(value: unknown, key: string): Place {
+  if (!value || typeof value !== "object") throw new ApiFailure(400, "INVALID_INPUT", `${key} must be a selected place.`);
+  const place = value as Record<string, unknown>;
+  if (typeof place.id !== "string" || place.id.length < 1 || place.id.length > 200
+    || typeof place.label !== "string" || place.label.length < 1 || place.label.length > 300
+    || !validCoordinates(place.coordinates)) throw new ApiFailure(400, "INVALID_INPUT", `${key} must include a valid label and coordinates.`);
+  const point = place.coordinates;
+  if (point.lat < davaoBounds.minLat || point.lat > davaoBounds.maxLat || point.lon < davaoBounds.minLon || point.lon > davaoBounds.maxLon
+    || (!/davao/i.test(place.label) && !(place.id.startsWith("gps:") && /^-?\d+(\.\d+)?, -?\d+(\.\d+)?$/.test(place.label)))) throw new ApiFailure(422, "OUTSIDE_COVERAGE", "Wandr currently supports selected places in Davao City. GPS boundary checks use an approximate area until verified city boundary data is configured.");
+  return { id: place.id, label: place.label, coordinates: { lat: point.lat, lon: point.lon } };
+}
+
+export async function readCompareRequest(request: Request): Promise<CompareRequest> {
+  if (!request.headers.get("Content-Type")?.toLowerCase().includes("application/json")) throw new ApiFailure(415, "INVALID_CONTENT_TYPE", "Send this request as JSON.");
+  const text = await request.text();
+  if (text.length > 12_000) throw new ApiFailure(413, "REQUEST_TOO_LARGE", "This trip request is too large.");
+  let body: unknown;
+  try { body = JSON.parse(text); } catch { throw new ApiFailure(400, "INVALID_INPUT", "The trip request is not valid JSON."); }
+  if (!body || typeof body !== "object") throw new ApiFailure(400, "INVALID_INPUT", "Choose an origin and destination.");
+  const data = body as Record<string, unknown>;
+  const origin = validatePlace(data.origin, "Origin");
+  const destination = validatePlace(data.destination, "Destination");
+  if (origin.id === destination.id || (origin.coordinates.lat === destination.coordinates.lat && origin.coordinates.lon === destination.coordinates.lon)) {
+    throw new ApiFailure(400, "SAME_PLACE", "Choose two different places.");
+  }
+  return { origin, destination };
+}

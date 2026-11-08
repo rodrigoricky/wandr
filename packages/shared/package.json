@@ -1,0 +1,1 @@
+{"name":"@wandr/shared","version":"1.0.0","private":true,"type":"module","exports":"./src/index.ts","scripts":{"typecheck":"tsc --noEmit -p tsconfig.json","lint":"eslint src tests --max-warnings=0","test":"vitest run"},"devDependencies":{"@types/node":"^22.0.0","eslint":"10.14.0","typescript":"6.0.3","vitest":"5.1.0"}}

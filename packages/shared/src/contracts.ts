@@ -1,0 +1,45 @@
+export type Coordinates = { lat: number; lon: number };
+export type Place = { id: string; label: string; coordinates: Coordinates };
+export type FareEstimate = {
+  currency: "PHP";
+  min: number | null;
+  max: number | null;
+  status: "published_rule" | "estimated" | "unknown";
+  sourceName: string | null;
+  sourceUrl: string | null;
+  checkedAt: string | null;
+};
+export type GeoLine = { type: "LineString"; coordinates: [number, number][] };
+export type TravelMode = "walk" | "drive";
+export type RouteLeg = {
+  mode: TravelMode;
+  title: string;
+  distanceMeters: number | null;
+  durationSeconds: number | null;
+  geometry: GeoLine | null;
+  source: string | null;
+};
+export type TransportOption = {
+  id: string;
+  title: string;
+  mode: TravelMode;
+  legs: RouteLeg[];
+  fare: FareEstimate;
+  totalDurationSeconds: number | null;
+  totalWalkingMeters: number | null;
+  transfers: number | null;
+  availability: "verified_route" | "estimated_road_route" | "unknown";
+  note: string | null;
+  rankingEligible: { cheapest: boolean; fastest: boolean };
+};
+export type CompareRequest = { origin: Place; destination: Place };
+export type CompareResponse = {
+  origin: Place;
+  destination: Place;
+  generatedAt: string;
+  scope: "davao_city";
+  options: TransportOption[];
+  warnings: string[];
+};
+export type PlaceSuggestion = Place & { addressLine: string };
+export type ApiError = { error: { code: string; message: string; retryable: boolean } };

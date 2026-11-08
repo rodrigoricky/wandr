@@ -1,0 +1,36 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+:root{--canvas:#F5F7F6;--surface:#fff;--ink:#20282B;--muted:#647174;--teal:#16767A;--border:#DCE3E1;--error:#A63838}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--canvas);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+button,input{font:inherit}
+button{color:inherit}
+button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:3px solid #78b8b4;outline-offset:2px}
+.device-frame{width:min(430px,100vw);height:min(900px,100dvh);min-height:0;border:7px solid #252b2d;border-radius:46px;background:var(--canvas);overflow:hidden;box-shadow:0 18px 60px #17222224;position:relative}
+.app-viewport{height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#c4ceca transparent}
+.page-shell{min-height:100%;padding:calc(22px + env(safe-area-inset-top)) 20px calc(22px + env(safe-area-inset-bottom))}
+.brand{font-size:23px;font-weight:750;letter-spacing:-.055em;line-height:1}
+.eyebrow{color:var(--muted);font-size:13px;line-height:1.5}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:18px}
+.field-wrap{position:relative;display:flex;align-items:center;gap:12px;min-height:68px;padding:12px 14px}
+.field-wrap input{width:100%;border:0;outline:0;background:transparent;color:var(--ink);font-size:16px;min-width:0}
+.field-wrap input::placeholder{color:#8b9695}
+.field-icon{flex:none;color:var(--teal)}
+.primary-button{min-height:52px;border-radius:15px;background:var(--teal);color:white;font-weight:650;display:flex;align-items:center;justify-content:center;gap:9px;width:100%;transition:background .16s ease,transform .16s ease}
+.primary-button:hover:not(:disabled){background:#115f63}.primary-button:active:not(:disabled){transform:scale(.99)}.primary-button:disabled{background:#aab9b6;color:white;cursor:not-allowed}
+.secondary-button,.icon-button{min-height:44px;border:1px solid var(--border);border-radius:13px;background:white;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 13px;font-weight:600}
+.icon-button{width:44px;padding:0}.text-button{min-height:44px;background:transparent;color:var(--teal);font-weight:650;padding:0 8px}
+.route-map{width:100%;height:210px;border-radius:18px;overflow:hidden;border:1px solid var(--border);background:#e8eeeb}
+.suggestion-list{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:15px;background:white;box-shadow:0 10px 28px #17222216}
+.suggestion{width:100%;min-height:52px;text-align:left;display:flex;align-items:center;gap:12px;padding:9px 13px;border:0;background:white}.suggestion:hover,.suggestion[aria-selected="true"]{background:#f1f7f6}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#edf5f4;color:#28686a;padding:5px 9px;font-size:11px;font-weight:650;line-height:1.2}
+.status-box{border:1px solid var(--border);border-radius:14px;padding:12px;background:#fff;color:var(--muted);font-size:13px;line-height:1.45}
+.overlay{position:absolute;inset:0;z-index:40;background:var(--canvas);overflow:auto;padding:calc(20px + env(safe-area-inset-top)) 18px calc(20px + env(safe-area-inset-bottom))}
+.mode-toggle{display:grid;grid-template-columns:1fr 1fr;padding:4px;background:#e9efed;border-radius:14px;gap:4px}.mode-toggle button{min-height:42px;border:0;border-radius:11px;background:transparent;font-weight:650;color:var(--muted)}.mode-toggle button[aria-pressed="true"]{background:white;color:var(--ink);box-shadow:0 1px 3px #17222212}
+.option-card{padding:15px}.map-marker{width:15px;height:15px;border-radius:50%;background:var(--teal);border:3px solid white;box-shadow:0 1px 5px #0005}
+@media(max-width:599px){.device-frame{width:100vw;height:100dvh;border:0;border-radius:0;box-shadow:none}.page-shell{padding-left:18px;padding-right:18px}}
+@media(min-width:600px) and (max-width:1023px){.device-frame{border-radius:34px}}
+@media(max-height:660px){.device-frame{height:100dvh}.route-map{height:160px}.page-shell{padding-top:calc(14px + env(safe-area-inset-top))}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}

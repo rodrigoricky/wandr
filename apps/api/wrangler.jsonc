@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wandr-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-07",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "vars": { "ALLOWED_ORIGINS": "http://localhost:3000" },
+  "ratelimits": [{ "name": "API_LIMITER", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } }],
+  "env": {
+    "preview": {
+      "name": "wandr-api-preview",
+      "vars": { "ALLOWED_ORIGINS": "http://localhost:3000" },
+      "ratelimits": [{ "name": "API_LIMITER", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } }]
+    },
+    "production": {
+      "name": "wandr-api-production",
+      "vars": { "ALLOWED_ORIGINS": "" },
+      "ratelimits": [{ "name": "API_LIMITER", "namespace_id": "1003", "simple": { "limit": 60, "period": 60 } }]
+    }
+  }
+}
