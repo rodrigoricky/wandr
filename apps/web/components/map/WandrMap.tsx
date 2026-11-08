@@ -4,6 +4,36 @@ import { useEffect, useRef, useState } from "react";
 import type { Airport, Coordinates, GeoGeometry } from "@wandr/shared";
 
 const primaryStyle = "https://tiles.openfreemap.org/styles/positron";
+const primaryTheme = [
+  { id: "background", type: "background", property: "background-color", value: "#f7f9ff" },
+  { id: "water", type: "fill", property: "fill-color", value: "#dce9ff" },
+  { id: "park", type: "fill", property: "fill-color", value: "#edf3ff" },
+  { id: "landuse_residential", type: "fill", property: "fill-color", value: "#f4f7ff" },
+  { id: "waterway", type: "line", property: "line-color", value: "#bfd6fb" },
+  { id: "road_area_pier", type: "fill", property: "fill-color", value: "#edf3ff" },
+  { id: "highway_minor", type: "line", property: "line-color", value: "#d5e1f5" },
+  { id: "highway_major_casing", type: "line", property: "line-color", value: "#bfcfee" },
+  { id: "highway_major_inner", type: "line", property: "line-color", value: "#f8fbff" },
+  { id: "highway_motorway_casing", type: "line", property: "line-color", value: "#a9c2eb" },
+  { id: "highway_motorway_inner", type: "line", property: "line-color", value: "#f8fbff" },
+] as const;
+
+function applyPrimaryTheme(instance: import("maplibre-gl").Map): void {
+  const layers = instance.getStyle()?.layers ?? [];
+  const applied: string[] = [];
+  for (const candidate of primaryTheme) {
+    const layer = layers.find((item) => item.id === candidate.id);
+    if (!layer || layer.type !== candidate.type || !layer.paint || !(candidate.property in layer.paint)) continue;
+    try {
+      instance.setPaintProperty(candidate.id, candidate.property, candidate.value);
+      applied.push(candidate.id);
+    } catch { /* Keep the provider style intact if a future layer changes shape. */ }
+  }
+  const container = instance.getContainer();
+  container.dataset.mapTheme = applied.length > 0 ? "wandr-blue" : "none";
+  container.dataset.mapThemeLayers = applied.join(",");
+}
+
 const fallbackStyle = {
   version: 8 as const,
   sources: {
@@ -108,6 +138,7 @@ export default function WandrMap({ origin, destination, geometry, airports, rout
         });
         onStyleLoad = () => {
           if (disposed) return;
+          applyPrimaryTheme(created);
           if (primaryAttemptPending) {
             usingFallback = false;
             primaryAttemptPending = false;
