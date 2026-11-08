@@ -120,6 +120,11 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
   expect(metricRects.every((metric) => metric.scrollWidth <= metric.clientWidth)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByText(/Head northeast on the mapped road/)).toHaveCount(0);
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Get there faster/ })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: /Grab Taxi/ }).click();
+  await expect(page.getByRole("heading", { name: "Journey details" })).toBeVisible();
   await page.getByRole("button", { name: "Back to comparison" }).click();
   await expect(page.getByRole("heading", { name: "Route options" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Get there faster" })).toHaveAttribute("aria-pressed", "true");
