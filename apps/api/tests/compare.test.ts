@@ -5,8 +5,8 @@ import { compare } from "../src/services/compare";
 vi.mock("../src/providers/geoapify", () => ({ route: vi.fn() }));
 
 const request = {
-  origin: { id: "a", label: "A", coordinates: { lat: 7.064, lon: 125.608 } },
-  destination: { id: "b", label: "B", coordinates: { lat: 7.05, lon: 125.595 } },
+  origin: { id: "a", label: "A", country: "Philippines", countryCode: "PH", coordinates: { lat: 7.064, lon: 125.608 } },
+  destination: { id: "b", label: "B", country: "Philippines", countryCode: "PH", coordinates: { lat: 7.05, lon: 125.595 } },
 };
 
 function leg(mode: "walk" | "drive", distanceMeters: number, durationSeconds: number) {
@@ -15,26 +15,37 @@ function leg(mode: "walk" | "drive", distanceMeters: number, durationSeconds: nu
     steps: [], source: "Geoapify Routing" }];
 }
 
-describe("comparison ranking semantics", () => {
+describe("local estimated transportation options", () => {
   beforeEach(() => vi.mocked(route).mockReset());
 
-  it("never ranks a road driving baseline as a fastest passenger journey", async () => {
-    vi.mocked(route).mockImplementation(async (_env, mode) => mode === "walk" ? leg(mode, 1_000, 1_000) : leg(mode, 1_000, 400));
+  it("adds deterministic motorized estimates when a real road route is available", async () => {
+    vi.mocked(route).mockImplementation(async (_env, mode) => mode === "walk" ? leg(mode, 1_000, 1_000) : leg(mode, 5_000, 600));
     const result = await compare({}, request);
-    expect(result.options.find((option) => option.mode === "drive")?.rankingEligible.fastest).toBe(false);
-    expect(result.options.find((option) => option.mode === "walk")?.rankingEligible).toEqual({ cheapest: true, fastest: true });
+    const repeated = await compare({}, { origin: { ...request.origin, label: "a" }, destination: { ...request.destination, label: "b" } });
+    expect(result.journeyType).toBe("local");
+    expect(result.options.map((option) => option.mode)).toEqual(["walk", "taxi", "car_ride", "motorcycle", "jeepney"]);
+    expect(result.options.filter((option) => option.mode !== "walk").every((option) => option.availability === "estimated_demo"
+      && option.fare.status === "estimated" && option.estimate?.kind === "demo_model" && option.estimate.version)).toBe(true);
+    expect(result.options.find((option) => option.mode === "taxi")?.providerId).toBe("generic_taxi");
+    expect(repeated.options.map((option) => [option.mode, option.fare.min, option.fare.max, option.totalDurationSeconds]))
+      .toEqual(result.options.map((option) => [option.mode, option.fare.min, option.fare.max, option.totalDurationSeconds]));
+    expect(result.options.find((option) => option.id === "drive")).toBeUndefined();
+    expect(result.warnings).toEqual([]);
   });
 
-  it("does not put a long or slow walk into the default money-saving options", async () => {
-    vi.mocked(route).mockImplementation(async (_env, mode) => mode === "walk" ? leg(mode, 1_501, 1_000) : leg(mode, 2_000, 600));
+  it("keeps motor estimates when the short-walk threshold is exceeded", async () => {
+    vi.mocked(route).mockImplementation(async (_env, mode) => mode === "walk" ? leg(mode, 2_001, 1_000) : leg(mode, 5_000, 600));
     const result = await compare({}, request);
     expect(result.options.some((option) => option.mode === "walk")).toBe(false);
-    expect(result.warnings.some((warning) => warning.includes("short-walk comparison limit"))).toBe(true);
+    expect(result.options.some((option) => option.mode === "taxi")).toBe(true);
+    expect(result.options.some((option) => option.mode === "motorcycle")).toBe(true);
   });
 
-  it("keeps a short walk and excludes walking that exceeds the time limit", async () => {
-    vi.mocked(route).mockImplementation(async (_env, mode) => mode === "walk" ? leg(mode, 1_400, 1_501) : leg(mode, 2_000, 600));
+  it("excludes walking when either default distance or duration limit is exceeded", async () => {
+    vi.mocked(route).mockImplementation(async (_env, mode) => mode === "walk" ? leg(mode, 1_400, 1_501) : leg(mode, 5_000, 600));
     const result = await compare({}, request);
     expect(result.options.some((option) => option.mode === "walk")).toBe(false);
+    expect(result.options.length).toBeGreaterThan(0);
   });
+
 });

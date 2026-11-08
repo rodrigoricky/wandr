@@ -24,6 +24,7 @@ export function validatePlace(value: unknown, key: string): Place {
     ...(typeof place.category === "string" || place.category === null ? { category: place.category } : {}),
     ...(typeof place.city === "string" || place.city === null ? { city: place.city } : {}),
     ...(typeof place.country === "string" || place.country === null ? { country: place.country } : {}),
+    ...(typeof place.countryCode === "string" || place.countryCode === null ? { countryCode: place.countryCode } : {}),
     ...(typeof place.source === "string" ? { source: place.source } : {}),
     ...(typeof place.confidence === "number" && Number.isFinite(place.confidence) && place.confidence >= 0 && place.confidence <= 1 ? { confidence: place.confidence } : {}),
   };

@@ -14,6 +14,6 @@ export function formatDistance(meters: number | null): string {
 }
 export function fareLabel(option: TransportOption): string {
   if (option.fare.min === null || option.fare.max === null) return "Fare unavailable";
-  if (option.fare.min === option.fare.max) return option.fare.min === 0 ? "₱0 fare" : `₱${option.fare.min}`;
-  return `₱${option.fare.min}–₱${option.fare.max}`;
+  if (option.fare.min === option.fare.max) return option.fare.min === 0 ? "₱0 fare" : `${option.fare.status === "estimated" ? "Est. " : ""}₱${option.fare.min}`;
+  return `${option.fare.status === "estimated" ? "Est. " : ""}₱${option.fare.min}–₱${option.fare.max}`;
 }

@@ -40,6 +40,8 @@ a { color: inherit; }
 .map-marker { width: 30px; height: 30px; display: grid; place-items: center; border: 2px solid #fff; background: #161616; color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 1px 3px #0006; }
 .map-marker-origin { border-radius: 50%; }
 .map-marker-destination { border-radius: 5px; }
+.map-marker-airport { width: auto; min-width: 36px; height: 28px; padding: 0 6px; border-radius: 7px; font-size: 10px; }
+.map-aircraft-marker { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid #d4d4d4; border-radius: 50%; background: #fff; color: #222; font-size: 17px; box-shadow: 0 1px 4px #0002; }
 
 .sheet { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 12px; padding: 9px 18px calc(16px + env(safe-area-inset-bottom)); border-top: 1px solid #ddd; border-radius: 24px 24px 0 0; background: var(--surface); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .sheet-search { max-height: min(72%, 430px); }
@@ -83,9 +85,13 @@ a { color: inherit; }
 .option-card:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
 .option-card-heading, .option-card-metrics, .option-fare, .option-time, .option-card-footnote { display: flex; align-items: center; }
 .option-card-heading { gap: 10px; }
-.option-mode-icon { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 11px; }
+.provider-identity { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.provider-mark { width: 40px; height: 36px; flex: none; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: #222; }
+.provider-mark-jeepney { width: 44px; }
+.provider-name { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 650; line-height: 1.25; text-overflow: ellipsis; }
+.option-card-subtitle { display: block; margin: 5px 0 0 50px; color: var(--muted); font-size: 11px; }
 .option-badge { flex: none; padding: 5px 8px; border: 1px solid #ddd; border-radius: 999px; background: #f4f4f4; color: #333; font-size: 10px; font-weight: 650; }
-.option-badge-fastest { border-color: #cce3cf; background: #eff8f0; color: #276b32; }
+.option-badge-fastest { border-color: #ddd; background: #f4f4f4; color: #333; }
 .option-card-metrics { justify-content: space-between; gap: 12px; margin-top: 13px; }
 .option-fare { min-width: 0; gap: 7px; font-size: 18px; }
 .option-fare strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -95,6 +101,15 @@ a { color: inherit; }
 .option-time strong { font-size: 12px; }
 .option-card-footnote { gap: 5px; margin-top: 11px; color: var(--muted); font-size: 11px; }
 .option-route-distance { margin-left: auto; }
+@media (max-width: 360px) {
+  .option-card-flight .option-card-metrics { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .option-card-flight .option-time { align-self: flex-end; }
+  .option-card-flight .option-fare strong { overflow: visible; text-overflow: clip; }
+  .sheet-results-air { max-height: min(55%, 420px); }
+  .route-map[data-route-kind="air"] .maplibregl-ctrl-top-left,
+  .route-map[data-route-kind="air"] .maplibregl-ctrl-top-right { top: 8px; bottom: auto; }
+  .route-map[data-route-kind="air"] .maplibregl-ctrl-attrib { max-width: 112px; font-size: 9px !important; line-height: 1.1; }
+}
 .secondary-button, .icon-button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; font-weight: 600; }
 .icon-button { width: 44px; padding: 0; }
 .empty-state { display: grid; gap: 7px; padding: 13px; border: 1px solid var(--border); border-radius: 14px; color: #444; font-size: 13px; line-height: 1.45; }

@@ -63,7 +63,7 @@ describe("Geoapify worldwide place autocomplete", () => {
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       const url = new URL(String(input)); requestUrl.push(url);
       return Response.json({ features: [
-        { geometry: { coordinates: [2.2945, 48.8584] }, properties: { place_id: "tower-1", name: "Eiffel Tower", formatted: "Eiffel Tower, Champ de Mars, 75007 Paris, France", address_line2: "Champ de Mars, 75007 Paris", city: "Paris", country: "France", category: "tourism.attraction", result_type: "amenity", rank: { confidence: 0.99 } } },
+        { geometry: { coordinates: [2.2945, 48.8584] }, properties: { place_id: "tower-1", name: "Eiffel Tower", formatted: "Eiffel Tower, Champ de Mars, 75007 Paris, France", address_line2: "Champ de Mars, 75007 Paris", city: "Paris", country: "France", country_code: "fr", category: "tourism.attraction", result_type: "amenity", rank: { confidence: 0.99 } } },
         { geometry: { coordinates: [2.2945, 48.8584] }, properties: { place_id: "duplicate-provider-id", name: "Eiffel Tower", formatted: "Eiffel Tower, Champ de Mars, 75007 Paris, France", city: "Paris", country: "France" } },
         { geometry: { coordinates: [2.29, 48.85] }, properties: { place_id: "other", name: "Eiffel Tower Garage", formatted: "Eiffel Tower Garage, Paris", category: "parking" } },
         { geometry: { coordinates: [181, 48.85] }, properties: { place_id: "bad", name: "Invalid coordinate" } },
@@ -73,7 +73,7 @@ describe("Geoapify worldwide place autocomplete", () => {
     expect(requestUrl[0].searchParams.has("filter")).toBe(false);
     expect(requestUrl[0].searchParams.get("bias")).toBe("proximity:125.612,7.073");
     expect(places).toHaveLength(2);
-    expect(places[0]).toMatchObject({ id: "geoapify:tower-1", label: "Eiffel Tower", addressLine: "Champ de Mars, 75007 Paris, France", category: "tourism.attraction", city: "Paris", country: "France", source: "Geoapify", confidence: 0.99, coordinates: { lon: 2.2945, lat: 48.8584 } });
+    expect(places[0]).toMatchObject({ id: "geoapify:tower-1", label: "Eiffel Tower", addressLine: "Champ de Mars, 75007 Paris, France", category: "tourism.attraction", city: "Paris", country: "France", countryCode: "FR", source: "Geoapify", confidence: 0.99, coordinates: { lon: 2.2945, lat: 48.8584 } });
   });
   it("uses a default Davao ranking bias without restricting global matches", async () => {
     const fetchMock = vi.fn(async (_input: URL | RequestInfo) => Response.json({ features: [] }));
@@ -86,7 +86,7 @@ describe("Geoapify worldwide place autocomplete", () => {
 });
 
 describe("trip comparison honesty", () => {
-  it("shows only actual routed modes and leaves driving fare unknown", async () => {
+  it("keeps live route geometry distinct from deterministic estimated option prices", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       const url = new URL(String(input));
       const mode = url.searchParams.get("mode");
@@ -96,11 +96,12 @@ describe("trip comparison honesty", () => {
       origin: { id: "a", label: "A, Davao City", coordinates: { lat: 7.07, lon: 125.61 } },
       destination: { id: "b", label: "B, Davao City", coordinates: { lat: 7.08, lon: 125.62 } },
     });
-    expect(result.options.map((item) => item.mode)).toEqual(["walk", "drive"]);
+    expect(result.options.map((item) => item.mode)).toEqual(["walk", "taxi", "car_ride", "motorcycle", "jeepney"]);
     expect(result.options[0].fare.min).toBe(0);
-    expect(result.options[1].fare.min).toBeNull();
-    expect(result.options[1].rankingEligible.cheapest).toBe(false);
-    expect(result.warnings.join(" ")).toContain("No verified Davao public-transport routes");
+    expect(result.options[1].fare.status).toBe("estimated");
+    expect(result.options[1].availability).toBe("estimated_demo");
+    expect(result.options[1].legs[0].geometry?.type).toBe("LineString");
+    expect(result.warnings).toEqual([]);
   });
   it("does not replace missing routes with demo data", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ features: [] }), { status: 200 })));
@@ -108,6 +109,25 @@ describe("trip comparison honesty", () => {
       origin: { id: "a", label: "A, Davao City", coordinates: { lat: 7.07, lon: 125.61 } },
       destination: { id: "b", label: "B, Davao City", coordinates: { lat: 7.08, lon: 125.62 } },
     })).rejects.toMatchObject({ code: "NO_SUPPORTED_ROUTE" });
+  });
+  it("keeps a valid walk and reports one concise issue if road routing fails", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.searchParams.get("mode") === "drive") return new Response("", { status: 503 });
+      return Response.json({ features: [{ geometry: { type: "LineString", coordinates: [[125.61, 7.07], [125.62, 7.08]] }, properties: { distance: 1000, time: 900 } }] });
+    }));
+    const result = await compare({ GEOAPIFY_API_KEY: "test-only" }, {
+      origin: { id: "a", label: "A", coordinates: { lat: 7.07, lon: 125.61 } },
+      destination: { id: "b", label: "B", coordinates: { lat: 7.08, lon: 125.62 } },
+    });
+    expect(result.options.map((option) => option.mode)).toEqual(["walk"]);
+    expect(result.warnings).toEqual(["Motorized estimates are unavailable because the road route could not be loaded."]);
+  });
+  it("keeps provider configuration errors instead of estimating without a road basis", async () => {
+    await expect(compare({}, {
+      origin: { id: "a", label: "A", coordinates: { lat: 7.07, lon: 125.61 } },
+      destination: { id: "b", label: "B", coordinates: { lat: 7.08, lon: 125.62 } },
+    })).rejects.toMatchObject({ code: "CONFIGURATION_MISSING" });
   });
 });
 

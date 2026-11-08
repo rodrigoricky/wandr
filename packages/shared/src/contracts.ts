@@ -7,6 +7,7 @@ export type Place = {
   category?: string | null;
   city?: string | null;
   country?: string | null;
+  countryCode?: string | null;
   source?: string;
   sourceRecord?: string;
   sourceUrl?: string;
@@ -27,8 +28,11 @@ export type GeoLine = { type: "LineString"; coordinates: [number, number][] };
 export type GeoGeometry = GeoLine | { type: "MultiLineString"; coordinates: [number, number][][] };
 export type RouteStep = { instruction: string; distanceMeters: number | null; durationSeconds: number | null };
 export type TravelMode = "walk" | "drive";
+export type OptionMode = "walk" | "jeepney" | "taxi" | "motorcycle" | "car_ride" | "flight";
+export type ProviderId = "walk" | "jeepney" | "generic_taxi" | "generic_motorcycle" | "generic_car" | "philippine_airlines" | "cebu_pacific" | "generic_air";
+export type JourneyType = "local" | "domestic_long_distance" | "international" | "unsupported";
 export type RouteLeg = {
-  mode: TravelMode;
+  mode: TravelMode | "flight";
   title: string;
   distanceMeters: number | null;
   durationSeconds: number | null;
@@ -39,13 +43,15 @@ export type RouteLeg = {
 export type TransportOption = {
   id: string;
   title: string;
-  mode: TravelMode;
+  mode: OptionMode;
+  providerId: ProviderId;
   legs: RouteLeg[];
   fare: FareEstimate;
   totalDurationSeconds: number | null;
   totalWalkingMeters: number | null;
   transfers: number | null;
-  availability: "verified_route" | "estimated_road_route" | "unknown";
+  availability: "verified_route" | "estimated_demo" | "estimated_road_route" | "unknown";
+  estimate?: { kind: "demo_model"; modelId: string; version: string; basis: string; note: string };
   note: string | null;
   rankingEligible: { cheapest: boolean; fastest: boolean };
 };
@@ -54,9 +60,28 @@ export type CompareResponse = {
   origin: Place;
   destination: Place;
   generatedAt: string;
-  scope: "davao_city" | "unsupported";
+  scope: "davao_city" | "domestic_long_distance" | "international" | "unsupported";
+  journeyType: JourneyType;
+  airports: { origin: Airport; destination: Airport } | null;
+  airRoute: AirRoutePreview | null;
   options: TransportOption[];
   warnings: string[];
 };
 export type PlaceSuggestion = Place & { addressLine: string; category: string | null; source: "Geoapify" | "Wandr Davao landmark index"; confidence: number | null };
+export type Airport = {
+  iata: string;
+  name: string;
+  coordinates: Coordinates;
+  countryCode: string;
+  municipality: string | null;
+  type: "large_airport" | "medium_airport";
+  region: string | null;
+};
+export type AirRoutePreview = {
+  geometry: GeoGeometry;
+  distanceMeters: number;
+  durationSeconds: number;
+  source: "great_circle_preview";
+  note: string;
+};
 export type ApiError = { error: { code: string; message: string; retryable: boolean } };

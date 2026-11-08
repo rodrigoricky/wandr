@@ -6,6 +6,7 @@ describe("reviewed Davao landmark lookup", () => {
     expect(findDavaoLandmarks("Abreeza Mall")[0]).toMatchObject({
       id: "davao-index:abreeza-ayala-mall",
       coordinates: { lon: 125.611561, lat: 7.0912032 },
+      countryCode: "PH",
       sourceRecord: "Geoapify Geocoding API result",
       sourceUrl: "https://apidocs.geoapify.com/docs/geocoding/",
       sourceQuery: "Abreeza Mall Davao",

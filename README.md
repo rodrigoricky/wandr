@@ -1,63 +1,54 @@
 # Wandr
 
-Wandr is a map-first trip planner prototype. Place search is worldwide; transport comparison is currently restricted to an approximate Davao City coordinate area. The Worker returns provider-routed walking paths and a driving road-time baseline only. It does not claim that a taxi, jeepney, bus, tricycle, or ride-hailing service is available, and it has no verified local passenger-route/fare dataset. See [implementation status](./docs/IMPLEMENTATION_STATUS.md) and [data-source evidence](./docs/DATA_SOURCES.md) before treating this as a transport-comparison product.
+Wandr is a map-first transportation comparison demonstration. It keeps the existing two-location search, optional GPS, worldwide Geoapify search, map-first phone shell, and two result sort controls. Local Davao results combine real walking/road geometry with clearly labeled, deterministic demo-price estimates. International or domestic-long-distance comparisons use nearby scheduled-service airport records and a schematic great-circle air corridor.
 
-## Requirements
+Wandr does not provide live taxi/ride-hailing quotes, company service checks, verified jeepney stops, boarding directions, airline schedules, bookings or seat availability. `Est.` amounts are model outputs. The displayed road line is not a passenger-transit route; the airport line is not a flight track or nonstop-service claim.
 
-- Node.js 22 or newer and npm 10 or newer
-- A Geoapify API key for live autocomplete, reverse geocoding, walking routes, and driving routes
-- Cloudflare account access and authorized domains for deployment
+## Requirements and local development
 
-## Local development
+- Node.js 22+ and npm 10+
+- A Geoapify API key for live search and local routing
+- Cloudflare access for preview/production deployment
 
 ```sh
 npm ci
 cp apps/api/.dev.vars.example apps/api/.dev.vars
 ```
 
-Put the Geoapify key in the ignored `apps/api/.dev.vars` file. Do not put it in a `NEXT_PUBLIC_*` variable, source code, or the static web bundle. Start the Worker and web app in separate terminals:
+Add the key only to ignored `apps/api/.dev.vars`. Do not put it in `NEXT_PUBLIC_*`, tracked source, or the static bundle. Run the Worker and web app in separate terminals:
 
 ```sh
 npm run dev:api
 npm run dev:web
 ```
 
-The web app is served at `http://localhost:3000`; the Worker is at `http://localhost:8787`. Next development mode uses the local Worker URL by default. If the API key is absent, the Worker reports `CONFIGURATION_MISSING` for provider-backed requests rather than returning sample data.
+The web app runs at `http://localhost:3000`; the Worker uses `http://localhost:8787`. If the port is occupied, run Wrangler on another local port and set `NEXT_PUBLIC_API_BASE_URL` for the web build.
 
 ## Checks
 
 ```sh
-npm run typecheck
-npm run lint
-npm test
-npm run build:web
-npm run build:web:local
+npm run check
 npm run test:e2e
 npm audit
 npm run deploy:dry-run -w @wandr/api
 ```
 
-`npm run build:web` is the deployment build and requires `NEXT_PUBLIC_API_BASE_URL` to be set to the target HTTPS Worker URL. `npm run build:web:local` is a static-export check that explicitly embeds the local Worker URL. Playwright browser tests intercept the API with deterministic test fixtures; they do not prove Geoapify connectivity or deployed behavior. The live staging and production integration checks are recorded in [docs/TEST_REPORT.md](./docs/TEST_REPORT.md).
+`npm run check` runs strict TypeScript, ESLint, all unit tests, and a local static export. `npm run build:web` is the deploy build and requires `NEXT_PUBLIC_API_BASE_URL` to be the target HTTPS Worker URL. Playwright fixtures exercise UI behavior but do not prove Geoapify reachability; see [the live verification report](./docs/TEST_REPORT.md).
 
-## Architecture and behavior
+The airport directory can be regenerated from its pinned public-domain OurAirports source revision:
 
-- `apps/web` is a Next.js static export served from `apps/web/out`. It uses one persistent MapLibre map beneath the search, results, and route-detail sheets.
-- `apps/api` is a Cloudflare Worker. It validates request data, restricts CORS to configured origins, rate limits search/compare requests, and owns Geoapify calls and the provider secret.
-- `packages/shared` holds the API contract and geographic normalization.
-- Worldwide place lookup is separate from transport coverage. Places outside the current approximate Davao coverage return an explicit unsupported-journey response.
-- Walking is only included in standard comparisons if its provider route is at most 1.5 km and 25 minutes. A road driving duration is shown as an estimate, but cannot win “Get there faster” because it is not a complete passenger journey. Unknown fares are not ranked as cheap.
-- Map tiles come from OpenFreeMap's Positron style; attribution remains visible. Place and route provider attributions are shown where required.
+```sh
+node apps/api/scripts/generate-airport-index.mjs
+```
 
-See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for request flow and [docs/DATA_SOURCES.md](./docs/DATA_SOURCES.md) for source status and coverage limits.
+## Estimate model
 
-## Cloudflare deployment outline
+- The Worker requests live Geoapify pedestrian and driving routes for local Davao trips. Walk is a default option only up to 1.5 km and 25 minutes.
+- Taxi estimates use the reported September 2026 regular taxi tariff as a distance/time input to an explicitly labeled road estimate. Car and motorcycle values use documented demo coefficients. Jeepney estimates apply the reported traditional PUJ fare rule to a road-distance input only; no stop, boarding route or ride distance is implied.
+- International and domestic-long-distance results resolve nearby scheduled-service airports from the Worker-only compact directory. PAL/Cebu estimates appear only for a pair involving the Philippines; otherwise the reference provider is generic. No brand logo is included where reuse permission is unconfirmed.
 
-The live topology is Cloudflare Pages for the static export and separate preview and production Cloudflare Workers for the API. Production is at [wandr.ricky.network](https://wandr.ricky.network); its API is at [api.wandr.ricky.network](https://api.wandr.ricky.network/v1/health). The current preview is at [codex-wandr-full-correction-oiad.wandr-ld1.pages.dev](https://codex-wandr-full-correction-oiad.wandr-ld1.pages.dev) and uses the `wandr-api-preview` Worker. The production Geoapify key is stored only as a Worker secret. See [docs/TEST_REPORT.md](./docs/TEST_REPORT.md) for actual provider checks and remaining gates.
+Detailed architecture and source boundaries are in [ARCHITECTURE.md](./docs/ARCHITECTURE.md), [DATA_SOURCES.md](./docs/DATA_SOURCES.md) and [BRAND_ASSETS.md](./docs/BRAND_ASSETS.md).
 
-1. From the repository root, set the preview Worker secret with `npm exec --workspace @wandr/api -- wrangler secret put GEOAPIFY_API_KEY --env preview` and deploy with `npm exec --workspace @wandr/api -- wrangler deploy --env preview`.
-2. Build the static app with `NEXT_PUBLIC_API_BASE_URL` set to the preview API HTTPS URL, then deploy `apps/web/out` to the `wandr` Pages project on a non-production branch.
-3. Verify genuine provider-backed local/overseas place searches and a local route on preview, plus CORS, attribution, secret isolation, and error behavior.
-4. Configure the Pages domain `wandr.ricky.network` and Worker custom domain `api.wandr.ricky.network`; verify DNS and HTTPS.
-5. Set the production Worker secret, deploy the production Worker, build with `NEXT_PUBLIC_API_BASE_URL=https://api.wandr.ricky.network`, and deploy the static output on the Pages production branch. Repeat real-provider end-to-end checks over HTTPS.
+## Deployment
 
-Production has passed live place search, route, CORS and browser checks at the deployed `main` revision. The product remains a Davao walking/road-estimate prototype until permitted passenger-transit routes and current fare rules are verified. The detailed evidence and A01–A40 acceptance record are in [docs/TEST_REPORT.md](./docs/TEST_REPORT.md).
+Production is [wandr.ricky.network](https://wandr.ricky.network) and its API is [api.wandr.ricky.network](https://api.wandr.ricky.network/v1/health). The preview Pages alias is [codex-wandr-full-correction-k8pn.wandr-ld1.pages.dev](https://codex-wandr-full-correction-k8pn.wandr-ld1.pages.dev); it calls the separate `wandr-api-preview` Worker. Production and preview use separate Worker secrets. See [TEST_REPORT.md](./docs/TEST_REPORT.md) for the exact code revision, integration evidence, deployment identifiers and known limits.

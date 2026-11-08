@@ -104,7 +104,7 @@ const landmarks: (PlaceSuggestion & { aliases: string[] })[] = [
     coordinates: { lon: 125.6079614, lat: 7.064662 },
     aliases: ["City Hall Davao", "Davao City Hall"],
   },
-].map((place) => ({ ...place, sourceRecord, checkedAt }));
+].map((place) => ({ ...place, countryCode: "PH", sourceRecord, checkedAt }));
 
 export function normalizePlaceQuery(value: string): string {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { ArrowLeft, ArrowLeftRight, Clock3, Footprints, LocateFixed, MapPin, Search, Wallet } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { combineRouteGeometries } from "@wandr/shared";
+import { combineRouteGeometries, isOptionRankable, sortTransportOptions } from "@wandr/shared";
 import type { CompareResponse, Place, PlaceSuggestion, TransportOption } from "@wandr/shared";
 import { LocationPicker } from "@/components/search/LocationPicker";
 import { PhoneShell } from "@/components/shell/PhoneShell";
@@ -19,7 +19,7 @@ type PickerTarget = "origin" | "destination";
 
 function comparisonNotice(data: CompareResponse, sort: SortMode, options: TransportOption[]): string | null {
   if (data.scope !== "davao_city") return null;
-  if (!options.some((option) => option.rankingEligible[sort])) {
+  if (!options.some((option) => isOptionRankable(option, sort))) {
     return sort === "cheapest" ? "Fare comparison unavailable." : "Complete passenger travel time unavailable.";
   }
   if (data.warnings.some((warning) => warning.includes("No verified Davao public-transport routes"))) return "Public-transport routes and fares unavailable.";
@@ -84,21 +84,15 @@ export default function Home() {
   const sort = screen.kind === "results" || screen.kind === "details" ? screen.sort : "cheapest";
   const sortedOptions = useMemo(() => {
     if (!resultData) return [];
-    return [...resultData.options].sort((a, b) => {
-      const eligibleA = a.rankingEligible[sort]; const eligibleB = b.rankingEligible[sort];
-      if (eligibleA !== eligibleB) return eligibleA ? -1 : 1;
-      if (!eligibleA) return a.id.localeCompare(b.id);
-      const av = sort === "cheapest" ? a.fare.min : a.totalDurationSeconds;
-      const bv = sort === "cheapest" ? b.fare.min : b.totalDurationSeconds;
-      return (av ?? Number.MAX_SAFE_INTEGER) - (bv ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id);
-    });
+    return sortTransportOptions(resultData.options, sort);
   }, [resultData, sort]);
   const selectedOption = screen.kind === "details" ? screen.data.options.find((option) => option.id === screen.optionId) : undefined;
   const mapOption = selectedOption ?? sortedOptions[0];
   const mapOrigin = resultData?.origin ?? origin;
   const mapDestination = resultData?.destination ?? destination;
   const mapGeometry = mapOption ? combineRouteGeometries(mapOption.legs.map((leg) => leg.geometry)) : null;
-  const bottomPadding = screen.kind === "search" || screen.kind === "loading" ? 330 : screen.kind === "results" ? 500 : 470;
+  const mapAirports = mapOption?.mode === "flight" ? resultData?.airports ?? null : null;
+  const bottomPadding = screen.kind === "search" || screen.kind === "loading" ? 330 : mapOption?.mode === "flight" ? (screen.kind === "results" ? 640 : 600) : screen.kind === "results" ? 500 : 470;
   const resultNotice = resultData ? comparisonNotice(resultData, sort, sortedOptions) : null;
 
   async function searchRoutes() {
@@ -172,7 +166,7 @@ export default function Home() {
 
   return <PhoneShell>
     <div className="wandr-app">
-      <WandrMap origin={mapOrigin?.coordinates} destination={mapDestination?.coordinates} geometry={mapGeometry} bottomPadding={bottomPadding}/>
+      <WandrMap origin={mapOrigin?.coordinates} destination={mapDestination?.coordinates} geometry={mapGeometry} airports={mapAirports} routeKind={mapOption?.mode === "flight" ? "air" : "road"} bottomPadding={bottomPadding}/>
 
       {(screen.kind === "search" || screen.kind === "loading") && <section className="sheet sheet-search" aria-label="Trip search">
         <div className="sheet-grabber" aria-hidden="true" />
@@ -188,7 +182,7 @@ export default function Home() {
         {error && <button type="button" className="text-button retry-button" onClick={searchRoutes}>Retry</button>}
       </section>}
 
-      {screen.kind === "results" && <section className="sheet sheet-results" aria-label="Route options">
+      {screen.kind === "results" && <section className={`sheet sheet-results${mapOption?.mode === "flight" ? " sheet-results-air" : ""}`} aria-label="Route options">
         <h1 className="sr-only">Route options</h1>
         <div className="sheet-grabber" aria-hidden="true" />
         <div className="mode-toggle" role="group" aria-label="Route preference">
@@ -197,15 +191,15 @@ export default function Home() {
         </div>
         <div className="trip-summary"><p><strong>{screen.data.origin.label}</strong><span> to </span><strong>{screen.data.destination.label}</strong></p><button type="button" className="text-button" onClick={() => backTo({ kind: "search" })}>Edit trip</button></div>
         {resultNotice && <p className="inline-status" role="status">{resultNotice}</p>}
-        {sortedOptions.length > 0 ? <div className="option-list">{sortedOptions.map((option, index) => <TransportOptionCard key={option.id} option={option} badge={index === 0 && option.rankingEligible[screen.sort] ? (screen.sort === "cheapest" ? "Lowest fare" : "Fastest") : undefined} badgeKind={screen.sort === "fastest" ? "fastest" : "money"} onSelect={() => pushScreen({ ...screen, kind: "details", optionId: option.id })}/>)}</div> : <div className="empty-state" role="status"><p>{screen.data.scope === "unsupported" ? "This journey is outside Wandr’s current transport-comparison coverage." : "No supported routes were returned for this trip."}</p><p>Place selections are kept. Edit either point or try another journey.</p></div>}
+        {sortedOptions.length > 0 ? <div className="option-list">{sortedOptions.map((option, index) => <TransportOptionCard key={option.id} option={option} airportCodes={option.mode === "flight" && screen.data.airports ? `${screen.data.airports.origin.iata} → ${screen.data.airports.destination.iata}` : undefined} badge={index === 0 && isOptionRankable(option, screen.sort) ? (screen.sort === "cheapest" ? "Lowest fare" : "Fastest") : undefined} badgeKind={screen.sort === "fastest" ? "fastest" : "money"} onSelect={() => pushScreen({ ...screen, kind: "details", optionId: option.id })}/>)}</div> : <div className="empty-state" role="status"><p>{screen.data.warnings[0] ?? (screen.data.scope === "unsupported" ? "This journey is outside Wandr’s current transport-comparison coverage." : "No supported routes were returned for this trip.")}</p></div>}
       </section>}
 
       {screen.kind === "details" && selectedOption && <section className="sheet sheet-details" aria-label="Route details">
         <div className="sheet-grabber" aria-hidden="true" />
         <header className="details-heading"><button type="button" className="icon-button" onClick={() => backTo({ kind: "results", data: screen.data, sort: screen.sort })} aria-label="Back to comparison"><ArrowLeft size={19}/></button><div><h1>Journey details</h1><p>{selectedOption.title}</p></div></header>
-        <div className="detail-metrics"><div><span>Fare</span><strong>{fareLabel(selectedOption)}</strong></div><div><span>{selectedOption.mode === "drive" ? "Road time" : "Journey time"}</span><strong>{formatDuration(selectedOption.totalDurationSeconds)}</strong></div><div><span>{selectedOption.mode === "drive" ? "Road distance" : "Walking distance"}</span><strong>{formatDistance(selectedOption.mode === "walk" ? selectedOption.totalWalkingMeters : selectedOption.legs.reduce<number | null>((sum, leg) => sum === null || leg.distanceMeters === null ? null : sum + leg.distanceMeters, 0))}</strong></div></div>
-        <ol className="journey-breakdown" aria-label="Journey breakdown"><li><span className="journey-step-icon">A</span><span><small>Start</small><strong>{screen.data.origin.label}</strong></span></li><li><span className="journey-step-icon"><Footprints size={15}/></span><span><small>{selectedOption.mode === "walk" ? "Walk" : "Road route"}</small><strong>{selectedOption.mode === "walk" ? "Follow the mapped walking path" : "Road path only · vehicle service unverified"}</strong></span></li><li><span className="journey-step-icon">B</span><span><small>Arrive</small><strong>{screen.data.destination.label}</strong></span></li></ol>
-        <details className="source-details"><summary>Source and estimate limits</summary><p>{selectedOption.legs.find((leg) => leg.source)?.source ?? "Routing source unavailable"}. {selectedOption.note ?? "Provider details are unavailable."}</p></details>
+        <div className="detail-metrics"><div><span>{selectedOption.mode === "flight" ? "Reference fare" : "Fare"}</span><strong>{fareLabel(selectedOption)}</strong></div><div><span>{selectedOption.mode === "flight" ? "Air journey time estimate" : selectedOption.mode === "walk" ? "Walking time" : "Estimated time"}</span><strong>{formatDuration(selectedOption.totalDurationSeconds)}</strong></div><div><span>{selectedOption.mode === "flight" ? "Air corridor" : selectedOption.mode === "walk" ? "Walking distance" : "Road distance reference"}</span><strong>{selectedOption.mode === "walk" ? formatDistance(selectedOption.totalWalkingMeters) : formatDistance(selectedOption.legs.reduce<number | null>((sum, leg) => sum === null || leg.distanceMeters === null ? null : sum + leg.distanceMeters, 0))}</strong></div></div>
+        {selectedOption.mode === "flight" && screen.data.airports ? <ol className="journey-breakdown" aria-label="Air corridor preview"><li><span className="journey-step-icon">{screen.data.airports.origin.iata}</span><span><small>Nearby departure airport</small><strong>{screen.data.airports.origin.name}</strong></span></li><li><span className="journey-step-icon">✈</span><span><small>Geographic air corridor</small><strong>No schedule or nonstop service claim</strong></span></li><li><span className="journey-step-icon">{screen.data.airports.destination.iata}</span><span><small>Nearby arrival airport</small><strong>{screen.data.airports.destination.name}</strong></span></li></ol> : <ol className="journey-breakdown" aria-label="Journey breakdown"><li><span className="journey-step-icon">A</span><span><small>Start</small><strong>{screen.data.origin.label}</strong></span></li><li><span className="journey-step-icon">{selectedOption.mode === "walk" ? <Footprints size={15}/> : selectedOption.mode === "jeepney" ? "J" : "·"}</span><span><small>{selectedOption.mode === "walk" ? "Walk" : selectedOption.mode === "jeepney" ? "Conditional jeepney fare reference" : "Estimated transport category"}</small><strong>{selectedOption.mode === "walk" ? "Follow the mapped walking path" : selectedOption.mode === "jeepney" ? "No stops or boarding directions are available" : "Road geometry is a distance reference only"}</strong></span></li><li><span className="journey-step-icon">B</span><span><small>Arrive</small><strong>{screen.data.destination.label}</strong></span></li></ol>}
+        <details className="source-details"><summary>Source and estimate limits</summary><p>{selectedOption.legs.find((leg) => leg.source)?.source ?? "Routing source unavailable"}. {selectedOption.estimate?.note ?? selectedOption.note ?? "Provider details are unavailable."}</p></details>
       </section>}
 
       {picker && <LocationPicker title={picker === "origin" ? "Starting point" : "Destination"} bias={origin?.coordinates} onChoose={(place) => choosePlace(picker, place)} onClose={() => setPicker(null)}/>}

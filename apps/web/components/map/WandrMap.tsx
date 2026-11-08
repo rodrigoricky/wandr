@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Coordinates, GeoGeometry } from "@wandr/shared";
+import type { Airport, Coordinates, GeoGeometry } from "@wandr/shared";
 
 const primaryStyle = "https://tiles.openfreemap.org/styles/positron";
 const fallbackStyle = {
@@ -28,14 +28,17 @@ type Props = {
   origin?: Coordinates | null;
   destination?: Coordinates | null;
   geometry?: GeoGeometry | null;
+  airports?: { origin: Airport; destination: Airport } | null;
+  routeKind?: "road" | "air";
   bottomPadding?: number;
 };
 
-export default function WandrMap({ origin, destination, geometry, bottomPadding = 280 }: Props) {
+export default function WandrMap({ origin, destination, geometry, airports, routeKind = "road", bottomPadding = 280 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<import("maplibre-gl").Map | null>(null);
   const markers = useRef<import("maplibre-gl").Marker[]>([]);
-  const latest = useRef({ origin, destination, geometry, bottomPadding });
+  const fitRoute = useRef<(() => void) | null>(null);
+  const latest = useRef({ origin, destination, geometry, airports, routeKind, bottomPadding });
   const [mapState, setMapState] = useState<MapState>({ status: "initializing" });
   const mapStateRef = useRef<MapState>({ status: "initializing" });
   const [styleRevision, setStyleRevision] = useState(0);
@@ -44,7 +47,7 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
     setMapState(next);
   };
 
-  useEffect(() => { latest.current = { origin, destination, geometry, bottomPadding }; }, [origin, destination, geometry, bottomPadding]);
+  useEffect(() => { latest.current = { origin, destination, geometry, airports, routeKind, bottomPadding }; }, [origin, destination, geometry, airports, routeKind, bottomPadding]);
 
   useEffect(() => {
     let disposed = false;
@@ -149,10 +152,23 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
         created.once("remove", () => window.removeEventListener("online", retryPrimaryWhenOnline));
         resizeObserver = new ResizeObserver(() => {
           requestAnimationFrame(() => {
-            if (!disposed && map.current === created) created.resize();
+            if (!disposed && map.current === created) {
+              created.resize();
+              fitRoute.current?.();
+            }
           });
         });
         resizeObserver.observe(container.current);
+        const handleViewportResize = () => {
+          requestAnimationFrame(() => {
+            if (!disposed && map.current === created) {
+              created.resize();
+              fitRoute.current?.();
+            }
+          });
+        };
+        window.addEventListener("resize", handleViewportResize);
+        created.once("remove", () => window.removeEventListener("resize", handleViewportResize));
       } catch { updateMapState({ status: "failed", message: "Map could not be started. Place search remains available." }); }
     }).catch(() => { if (!disposed) updateMapState({ status: "failed", message: "Map could not be started. Place search remains available." }); });
 
@@ -163,6 +179,7 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
       if (instance && onStyleLoad) instance.off("style.load", onStyleLoad);
       markers.current.forEach((marker) => marker.remove());
       markers.current = [];
+      fitRoute.current = null;
       instance?.remove();
       map.current = null;
     };
@@ -170,56 +187,111 @@ export default function WandrMap({ origin, destination, geometry, bottomPadding 
 
   useEffect(() => {
     const instance = map.current;
-    if ((mapState.status !== "ready" && mapState.status !== "degraded") || !instance || !instance.isStyleLoaded()) return;
+    if ((mapState.status !== "ready" && mapState.status !== "degraded") || !instance) return;
     void import("maplibre-gl").then((maplibre) => {
-      if (map.current !== instance || !instance.isStyleLoaded()) return;
+      if (map.current !== instance) return;
+      if (!instance.isStyleLoaded()) {
+        const retryWhenIdle = () => {
+          if (map.current !== instance) return;
+          if (instance.isStyleLoaded()) setStyleRevision((value) => value + 1);
+          else instance.once("idle", retryWhenIdle);
+        };
+        instance.once("idle", retryWhenIdle);
+        return;
+      }
       markers.current.forEach((marker) => marker.remove());
       markers.current = [];
 
-      for (const [point, label, role] of [[latest.current.origin, "A", "origin"], [latest.current.destination, "B", "destination"]] as const) {
+      const isAir = latest.current.routeKind === "air" && latest.current.airports;
+      const markersToAdd: [Coordinates | null | undefined, string, string][] = isAir
+        ? [[latest.current.airports?.origin.coordinates, latest.current.airports?.origin.iata ?? "", "airport"], [latest.current.airports?.destination.coordinates, latest.current.airports?.destination.iata ?? "", "airport"]]
+        : [[latest.current.origin, "A", "origin"], [latest.current.destination, "B", "destination"]];
+      for (const [point, label, role] of markersToAdd) {
         if (!point) continue;
         const element = document.createElement("div");
         element.className = `map-marker map-marker-${role}`;
         element.textContent = label;
-        element.setAttribute("aria-label", role === "origin" ? "Starting point" : "Destination");
+        element.setAttribute("aria-label", role === "airport" ? `${label} airport` : role === "origin" ? "Starting point" : "Destination");
         markers.current.push(new maplibre.Marker({ element, anchor: "center" }).setLngLat([point.lon, point.lat]).addTo(instance));
       }
 
       const emptyGeometry = { type: "LineString" as const, coordinates: [] as [number, number][] };
-      const data = { type: "Feature" as const, properties: {}, geometry: latest.current.geometry ?? emptyGeometry };
+      const emptyFeature = { type: "Feature" as const, properties: {}, geometry: emptyGeometry };
+      const airGeometry = isAir ? latest.current.geometry ?? emptyGeometry : emptyGeometry;
+      const roadGeometry = isAir ? emptyGeometry : latest.current.geometry ?? emptyGeometry;
+      const roadFeature = { ...emptyFeature, geometry: roadGeometry };
+      const airFeature = { ...emptyFeature, geometry: airGeometry };
       const existing = instance.getSource("wandr-route") as import("maplibre-gl").GeoJSONSource | undefined;
-      if (existing) existing.setData(data);
+      if (existing) existing.setData(roadFeature);
       else {
-        instance.addSource("wandr-route", { type: "geojson", data });
+        instance.addSource("wandr-route", { type: "geojson", data: roadFeature });
         instance.addLayer({ id: "wandr-route-casing", type: "line", source: "wandr-route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 8, "line-opacity": 0.96 } });
         instance.addLayer({ id: "wandr-route-line", type: "line", source: "wandr-route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#111111", "line-width": 4, "line-opacity": 0.96 } });
       }
-
-      const points = [latest.current.origin, latest.current.destination].filter((point): point is Coordinates => Boolean(point));
-      const routeCoordinates = latest.current.geometry?.type === "LineString"
-        ? latest.current.geometry.coordinates
-        : latest.current.geometry?.coordinates.flat() ?? [];
-      if (points.length === 2) {
-        const first = points[0];
-        const bounds = new maplibre.LngLatBounds([first.lon, first.lat], [first.lon, first.lat]);
-        points.slice(1).forEach((point) => bounds.extend([point.lon, point.lat]));
-        routeCoordinates.forEach((point) => bounds.extend(point));
-        const height = container.current?.clientHeight ?? 700;
-        const bottom = Math.min(latest.current.bottomPadding, Math.max(70, height - 100));
-        // A single-point flyTo keeps its padding on the map. Clear it before
-        // applying the result-sheet fit so the two paddings do not accumulate.
-        instance.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
-        instance.fitBounds(bounds, { padding: { top: 72, right: 36, bottom, left: 36 }, absolutePadding: true, maxZoom: 15, duration: 220 });
-      } else if (points.length === 1) {
-        const point = points[0];
-        instance.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
-        instance.flyTo({ center: [point.lon, point.lat], zoom: 14, padding: { top: 50, right: 30, bottom: latest.current.bottomPadding, left: 30 }, duration: 220 });
+      const existingAir = instance.getSource("wandr-air-route") as import("maplibre-gl").GeoJSONSource | undefined;
+      if (existingAir) existingAir.setData(airFeature);
+      else {
+        instance.addSource("wandr-air-route", { type: "geojson", data: airFeature });
+        instance.addLayer({ id: "wandr-air-route-line", type: "line", source: "wandr-air-route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#4b4b4b", "line-width": 2.5, "line-dasharray": [2, 2], "line-opacity": 0.88 } });
       }
+
+      if (isAir && latest.current.geometry) {
+        const coordinates = latest.current.geometry.type === "LineString" ? latest.current.geometry.coordinates : latest.current.geometry.coordinates.flat();
+        const midpoint = coordinates[Math.floor(coordinates.length / 2)];
+        if (midpoint) {
+          const aircraft = document.createElement("div");
+          aircraft.className = "map-aircraft-marker";
+          aircraft.textContent = "✈";
+          aircraft.setAttribute("aria-label", "Schematic air corridor");
+          markers.current.push(new maplibre.Marker({ element: aircraft, anchor: "center" }).setLngLat(midpoint).addTo(instance));
+        }
+      }
+
+      const fitCurrentRoute = () => {
+        const points = latest.current.routeKind === "air" && latest.current.airports
+          ? [latest.current.airports.origin.coordinates, latest.current.airports.destination.coordinates]
+          : [latest.current.origin, latest.current.destination].filter((point): point is Coordinates => Boolean(point));
+        if (points.length === 2) {
+          const first = points[0];
+          const bounds = new maplibre.LngLatBounds([first.lon, first.lat], [first.lon, first.lat]);
+          const last = points[1];
+          let lastLongitude = last.lon;
+          if (latest.current.routeKind === "air" && Math.abs(lastLongitude - first.lon) > 180) lastLongitude += lastLongitude < first.lon ? 360 : -360;
+          bounds.extend([lastLongitude, last.lat]);
+          if (latest.current.routeKind !== "air") {
+            const routeCoordinates = latest.current.geometry?.type === "LineString"
+              ? latest.current.geometry.coordinates
+              : latest.current.geometry?.coordinates.flat() ?? [];
+            routeCoordinates.forEach((point) => bounds.extend(point));
+          }
+          const height = container.current?.clientHeight ?? 700;
+          const compactAir = latest.current.routeKind === "air" && (container.current?.clientWidth ?? 0) <= 360;
+          const topPadding = compactAir ? 190 : 72;
+          const bottom = compactAir
+            ? Math.min(latest.current.bottomPadding, Math.round(height * 0.6))
+            : Math.min(latest.current.bottomPadding, Math.max(70, height - topPadding - 100));
+          const sidePadding = compactAir ? 40 : 36;
+          const width = container.current?.clientWidth ?? 390;
+          const longitudeSpan = Math.abs(lastLongitude - first.lon);
+          const zoomForAvailableWidth = longitudeSpan > 0
+            ? Math.log2(Math.max(1, width - sidePadding * 2) / (512 * longitudeSpan / 360))
+            : 15;
+          const compactAirMaxZoom = compactAir ? Math.max(0, Math.floor(zoomForAvailableWidth * 2) / 2) : 15;
+          instance.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
+          instance.fitBounds(bounds, { padding: { top: topPadding, right: sidePadding, bottom, left: sidePadding }, absolutePadding: true, maxZoom: Math.min(15, compactAirMaxZoom), duration: 220 });
+        } else if (points.length === 1) {
+          const point = points[0];
+          instance.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
+          instance.flyTo({ center: [point.lon, point.lat], zoom: 14, padding: { top: 50, right: 30, bottom: latest.current.bottomPadding, left: 30 }, duration: 220 });
+        }
+      };
+      fitRoute.current = fitCurrentRoute;
+      fitCurrentRoute();
     }).catch(() => updateMapState({ status: "failed", message: "The selected route could not be drawn on the map." }));
-  }, [origin, destination, geometry, bottomPadding, mapState.status, styleRevision]);
+  }, [origin, destination, geometry, airports, routeKind, bottomPadding, mapState.status, styleRevision]);
 
   return <div className="map-layer">
-    <div className="route-map" ref={container} data-map-ready={mapState.status === "ready" || mapState.status === "degraded" ? "true" : "false"} data-map-provider={mapState.status === "ready" || mapState.status === "degraded" ? mapState.provider : "loading"} aria-label="Interactive map showing selected places and provider route geometry" role="region" />
+    <div className="route-map" ref={container} data-map-ready={mapState.status === "ready" || mapState.status === "degraded" ? "true" : "false"} data-map-provider={mapState.status === "ready" || mapState.status === "degraded" ? mapState.provider : "loading"} data-route-kind={routeKind} aria-label="Interactive map showing selected places and provider route geometry" role="region" />
     {(mapState.status === "degraded" || mapState.status === "failed") && <div className="map-error" role="status">{mapState.message}</div>}
   </div>;
 }
