@@ -57,7 +57,7 @@ Updated 2026-11-09. This report records the ordered implementation, verification
   - Deployment ID: `54d3c125-674a-45aa-bfed-58fa3f340d46`
   - Deployment URL: `https://54d3c125.wandr-ld1.pages.dev`
   - Custom domain: `https://wandr.ricky.network/`
-- The Pages deployment source is app commit `6e9b180`; final `main` commit `d3b60d37ca3fe529dde4843d7e615fda9f514f79` adds only this evidence report and screenshots.
+- The Pages deployment source is app commit `6e9b180`; final `main` commit `e41826f` adds the evidence report plus the explicit recovery no-replay regression assertion.
 
 ## Real production checks
 
