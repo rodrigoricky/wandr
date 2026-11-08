@@ -52,7 +52,7 @@ See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for request flow and [docs/DA
 
 ## Cloudflare deployment outline
 
-The live topology is Cloudflare Pages for the static export and separate preview and production Cloudflare Workers for the API. Production is at [wandr.ricky.network](https://wandr.ricky.network); its API is at [api.wandr.ricky.network](https://api.wandr.ricky.network/v1/health). The preview is at [codex-wandr-full-correction.wandr-ld1.pages.dev](https://codex-wandr-full-correction.wandr-ld1.pages.dev) and uses the `wandr-api-preview` Worker. The production Geoapify key is stored only as a Worker secret. See [docs/TEST_REPORT.md](./docs/TEST_REPORT.md) for actual provider checks and remaining gates.
+The live topology is Cloudflare Pages for the static export and separate preview and production Cloudflare Workers for the API. Production is at [wandr.ricky.network](https://wandr.ricky.network); its API is at [api.wandr.ricky.network](https://api.wandr.ricky.network/v1/health). The current preview is at [codex-wandr-full-correction-oiad.wandr-ld1.pages.dev](https://codex-wandr-full-correction-oiad.wandr-ld1.pages.dev) and uses the `wandr-api-preview` Worker. The production Geoapify key is stored only as a Worker secret. See [docs/TEST_REPORT.md](./docs/TEST_REPORT.md) for actual provider checks and remaining gates.
 
 1. From the repository root, set the preview Worker secret with `npm exec --workspace @wandr/api -- wrangler secret put GEOAPIFY_API_KEY --env preview` and deploy with `npm exec --workspace @wandr/api -- wrangler deploy --env preview`.
 2. Build the static app with `NEXT_PUBLIC_API_BASE_URL` set to the preview API HTTPS URL, then deploy `apps/web/out` to the `wandr` Pages project on a non-production branch.
@@ -60,4 +60,4 @@ The live topology is Cloudflare Pages for the static export and separate preview
 4. Configure the Pages domain `wandr.ricky.network` and Worker custom domain `api.wandr.ricky.network`; verify DNS and HTTPS.
 5. Set the production Worker secret, deploy the production Worker, build with `NEXT_PUBLIC_API_BASE_URL=https://api.wandr.ricky.network`, and deploy the static output on the Pages production branch. Repeat real-provider end-to-end checks over HTTPS.
 
-Cloudflare access alone is not evidence of a deployment. Production has passed live place search and route checks, but the product remains a Davao walking/road-estimate prototype until current passenger-transit routes and fares are verified. The detailed evidence and A01–A40 acceptance record are in [docs/TEST_REPORT.md](./docs/TEST_REPORT.md).
+Production has passed live place search, route, CORS and browser checks at the deployed `main` revision. The product remains a Davao walking/road-estimate prototype until permitted passenger-transit routes and current fare rules are verified. The detailed evidence and A01–A40 acceptance record are in [docs/TEST_REPORT.md](./docs/TEST_REPORT.md).
