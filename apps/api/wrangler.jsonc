@@ -10,12 +10,13 @@
   "env": {
     "preview": {
       "name": "wandr-api-preview",
-      "vars": { "ALLOWED_ORIGINS": "http://localhost:3000" },
+      "vars": { "ALLOWED_ORIGINS": "http://localhost:3000,https://codex-wandr-full-correction.wandr-ld1.pages.dev" },
       "ratelimits": [{ "name": "API_LIMITER", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } }]
     },
     "production": {
       "name": "wandr-api-production",
-      "vars": { "ALLOWED_ORIGINS": "" },
+      "vars": { "ALLOWED_ORIGINS": "https://wandr.ricky.network" },
+      "routes": [{ "pattern": "api.wandr.ricky.network", "custom_domain": true }],
       "ratelimits": [{ "name": "API_LIMITER", "namespace_id": "1003", "simple": { "limit": 60, "period": 60 } }]
     }
   }
