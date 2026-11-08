@@ -54,8 +54,10 @@ Updated 2026-11-09. This report records the ordered implementation, verification
   - Version: `34ddded0-ec05-4e5d-aafa-7aef1e8e6efe`
   - Custom domain: `api.wandr.ricky.network`
 - Production Pages deployed from `apps/web/out` to project `wandr`, branch `main`:
+  - Deployment ID: `54d3c125-674a-45aa-bfed-58fa3f340d46`
   - Deployment URL: `https://54d3c125.wandr-ld1.pages.dev`
   - Custom domain: `https://wandr.ricky.network/`
+- The Pages deployment source is app commit `6e9b180`; final `main` commit `d3b60d37ca3fe529dde4843d7e615fda9f514f79` adds only this evidence report and screenshots.
 
 ## Real production checks
 
