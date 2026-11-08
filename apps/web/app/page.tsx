@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ArrowLeft, ArrowLeftRight, Clock3, LocateFixed, Search, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Clock3, MapPin, Search, Wallet } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { combineRouteGeometries, isOptionRankable, sortTransportOptions } from "@wandr/shared";
 import type { CompareResponse, Place, PlaceSuggestion, TransportOption } from "@wandr/shared";
@@ -9,8 +9,9 @@ import { LocationPicker } from "@/components/search/LocationPicker";
 import { PhoneShell } from "@/components/shell/PhoneShell";
 import { TransportOptionCard } from "@/components/results/TransportOptionCard";
 import { ProviderIdentity } from "@/components/results/ProviderIdentity";
-import { compareTrip, reverseGeocode } from "@/lib/api-client";
+import { compareTrip } from "@/lib/api-client";
 import { formatDistance, formatDuration, fareLabel, fullFareLabel } from "@/lib/formatting";
+import { adduJacintoDemoStart } from "@wandr/shared";
 
 const WandrMap = dynamic(() => import("@/components/map/WandrMap"), { ssr: false, loading: () => <div className="map-loading" role="status">Loading map…</div> });
 
@@ -36,14 +37,12 @@ function isUniqueRankWinner(options: TransportOption[], option: TransportOption,
 }
 
 export default function Home() {
-  const [origin, setOrigin] = useState<Place | null>(null);
+  const [origin, setOrigin] = useState<Place | null>(adduJacintoDemoStart);
   const [destination, setDestination] = useState<Place | null>(null);
   const [screen, setScreen] = useState<Screen>({ kind: "search" });
   const [picker, setPicker] = useState<PickerTarget | null>(null);
   const [error, setError] = useState("");
-  const [gps, setGps] = useState<"idle" | "loading" | "denied" | "failed">("idle");
   const routeAbort = useRef<AbortController | null>(null);
-  const gpsRequestId = useRef(0);
   const historySession = useRef<string | null>(null);
   const historyCounter = useRef(0);
   const screensByHistoryKey = useRef(new Map<string, Screen>());
@@ -63,7 +62,6 @@ export default function Home() {
     return () => {
       window.removeEventListener("popstate", restore);
       routeAbort.current?.abort();
-      gpsRequestId.current += 1;
     };
   }, []);
 
@@ -128,38 +126,24 @@ export default function Home() {
 
   function choosePlace(target: PickerTarget, place: PlaceSuggestion) {
     routeAbort.current?.abort();
-    gpsRequestId.current += 1;
     if (target === "origin") setOrigin(place); else setDestination(place);
-    setPicker(null); setError(""); setGps("idle"); setScreen({ kind: "search" });
+    setPicker(null); setError(""); setScreen({ kind: "search" });
   }
 
   function swapPlaces() {
     routeAbort.current?.abort();
-    gpsRequestId.current += 1;
-    setOrigin(destination); setDestination(origin); setError(""); setGps("idle"); setScreen({ kind: "search" });
+    setOrigin(destination); setDestination(origin); setError(""); setScreen({ kind: "search" });
   }
 
-  function useLocation() {
-    if (!navigator.geolocation) { setGps("failed"); return; }
-    const requestId = ++gpsRequestId.current;
-    setGps("loading"); setError("");
-    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-      if (requestId !== gpsRequestId.current) return;
-      const point = { lat: coords.latitude, lon: coords.longitude };
-      try {
-        const result = await reverseGeocode(point);
-        if (requestId !== gpsRequestId.current) return;
-        setOrigin({ id: result.id, label: result.label, addressLine: result.fallback ? undefined : result.label, coordinates: point });
-        setGps(result.fallback ? "failed" : "idle");
-      } catch {
-        if (requestId !== gpsRequestId.current) return;
-        setOrigin({ id: `gps:${point.lat.toFixed(5)},${point.lon.toFixed(5)}`, label: `${point.lat.toFixed(5)}, ${point.lon.toFixed(5)}`, coordinates: point });
-        setGps("failed");
-      }
-    }, (failure) => {
-      if (requestId !== gpsRequestId.current) return;
-      setGps(failure.code === failure.PERMISSION_DENIED ? "denied" : "failed");
-    }, { enableHighAccuracy: false, timeout: 12_000, maximumAge: 0 });
+  function useCampusStart() {
+    routeAbort.current?.abort();
+    routeAbort.current = null;
+    setOrigin(adduJacintoDemoStart);
+    setDestination((current) => current && (current.id === adduJacintoDemoStart.id
+      || (current.coordinates.lat === adduJacintoDemoStart.coordinates.lat && current.coordinates.lon === adduJacintoDemoStart.coordinates.lon)) ? null : current);
+    setPicker(null);
+    setError("");
+    setScreen({ kind: "search" });
   }
 
   const setSort = (nextSort: SortMode) => setScreen((current) => current.kind === "results" || current.kind === "details" ? { ...current, sort: nextSort } : current);
@@ -181,9 +165,7 @@ export default function Home() {
         <div className="place-fields">{placeField("origin", origin)}{placeField("destination", destination)}
           <button type="button" className="swap-button" onClick={swapPlaces} disabled={!origin && !destination} aria-label="Swap origin and destination"><ArrowLeftRight size={18}/></button>
         </div>
-        <div className="search-actions"><button className="location-button" type="button" onClick={useLocation} disabled={gps === "loading"}><LocateFixed size={17}/>{gps === "loading" ? "Finding location…" : "Use my location"}</button></div>
-        {gps === "denied" && <p className="inline-status" role="status">Location permission was denied. You can still choose a place.</p>}
-        {gps === "failed" && <p className="inline-status" role="status">Location name unavailable. Coordinates were kept so you can continue.</p>}
+        <div className="search-actions"><button className="location-button" type="button" onClick={useCampusStart}><MapPin size={17}/>Use AdDU Jacinto</button></div>
         {error && <div className="inline-alert" role="alert">{error}</div>}
         <button type="button" className="primary-button" onClick={searchRoutes} disabled={!canSearch || screen.kind === "loading"}>{screen.kind === "loading" ? <><span className="spinner" aria-hidden="true"/>Finding routes…</> : <><Search size={18}/>Find routes</>}</button>
         {screen.kind === "loading" && <button type="button" className="text-button cancel-button" onClick={cancelRouteSearch}>Cancel</button>}

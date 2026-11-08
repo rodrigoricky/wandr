@@ -38,7 +38,7 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
   await expect(page.getByRole("link", { name: /OpenStreetMap/ })).toBeVisible({ timeout: 15_000 });
   await page.locator('.route-map[data-map-ready="true"]').waitFor({ state: "visible", timeout: 20_000 });
   await page.screenshot({ path: "/tmp/wandr-search-390.png", fullPage: true });
-  await page.getByRole("button", { name: "Choose starting point" }).click();
+  await page.getByRole("button", { name: /Choose starting point/ }).click();
   const originSearch = page.getByRole("combobox", { name: "Starting point place search" });
   await originSearch.fill("City Hall");
   await expect(page.getByRole("option")).toHaveCount(1);
@@ -127,8 +127,16 @@ test("manual search, keyboard place selection, sorting, details, and back naviga
   expect(submitted[0]).toMatchObject({ origin: { id: origin.id }, destination: { id: destination.id } });
 });
 
-test("GPS is opt-in and permission denial leaves manual search available", async ({ page, context }) => {
+test("AdDU Jacinto starts the demo and the campus action never calls GPS or reverse geocoding", async ({ page, context }) => {
   await context.grantPermissions([]);
+  const cityHall = { id: "city-hall", label: "Davao City Hall", addressLine: "Davao City, Philippines", city: "Davao City", country: "Philippines", countryCode: "PH", coordinates: { lat: 7.064, lon: 125.608 } };
+  const mall = { id: "sm-davao", label: "SM City Davao", addressLine: "Quimpo Boulevard, Davao City, Philippines", city: "Davao City", country: "Philippines", countryCode: "PH", coordinates: { lat: 7.04875, lon: 125.5888 } };
+  let reverseRequests = 0;
+  await page.route("**/v1/places/search**", async (route) => {
+    const query = new URL(route.request().url()).searchParams.get("q")?.toLowerCase() ?? "";
+    await route.fulfill({ json: { places: [query.includes("hall") ? cityHall : mall] } });
+  });
+  page.on("request", (request) => { if (request.url().includes("/v1/places/reverse")) reverseRequests += 1; });
   await page.addInitScript(() => {
     const geo = navigator.geolocation;
     const requestPosition = geo.getCurrentPosition.bind(geo);
@@ -140,11 +148,22 @@ test("GPS is opt-in and permission denial leaves manual search available", async
   });
   await page.goto("/");
   expect(await page.evaluate(() => window.__gpsRequestCount)).toBe(0);
+  await expect(page.getByRole("button", { name: /Choose starting point, Ateneo de Davao University — Jacinto\/Main Campus/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose destination" })).toBeVisible();
+  await page.locator('.route-map[data-map-ready="true"]').waitFor({ state: "visible", timeout: 20_000 });
+  await expect(page.locator(".map-marker-origin")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Find routes" })).toBeDisabled();
-  await page.getByRole("button", { name: "Use my location" }).click();
-  await expect.poll(() => page.evaluate(() => window.__gpsRequestCount)).toBe(1);
-  await expect(page.getByText("Location permission was denied.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Choose starting point" })).toBeEnabled();
+  await page.getByRole("button", { name: /Choose starting point/ }).click();
+  await page.getByRole("combobox", { name: "Starting point place search" }).fill("City Hall");
+  await page.getByRole("option").click();
+  await page.getByRole("button", { name: "Choose destination" }).click();
+  await page.getByRole("combobox", { name: "Destination place search" }).fill("SM City Davao");
+  await page.getByRole("option").click();
+  await page.getByRole("button", { name: "Use AdDU Jacinto" }).click();
+  await expect(page.getByRole("button", { name: /Choose starting point, Ateneo de Davao University — Jacinto\/Main Campus/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Choose destination, SM City Davao/ })).toBeVisible();
+  expect(await page.evaluate(() => window.__gpsRequestCount)).toBe(0);
+  expect(reverseRequests).toBe(0);
 });
 
 test("reviewed local Davao aliases appear immediately and merge with provider results", async ({ page }) => {
@@ -156,7 +175,7 @@ test("reviewed local Davao aliases appear immediately and merge with provider re
     ] }) });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Choose starting point" }).click();
+  await page.getByRole("button", { name: /Choose starting point/ }).click();
   const input = page.getByRole("combobox", { name: "Starting point place search" });
   await input.fill("Abreeza Mall");
   const localResult = page.getByRole("option", { name: /Abreeza Ayala Mall Davao/ });
@@ -188,7 +207,7 @@ test("global named places remain selectable and show a generic international air
     options: [{ id: "air-generic_air", title: "Air journey estimate", mode: "flight", providerId: "generic_air", legs: [{ mode: "flight", title: "Geographic air corridor", distanceMeters: 9_700_000, durationSeconds: 50_000, geometry: corridor, steps: [], source: "Wandr great-circle preview" }], fare: { currency: "PHP", min: 22_000, max: 30_000, status: "estimated", sourceName: "Wandr distance-based demo model", sourceUrl: null, checkedAt: null }, totalDurationSeconds: 50_000, totalWalkingMeters: 0, transfers: null, availability: "estimated_demo", estimate: { kind: "demo_model", modelId: "air-generic", version: "1", basis: "Great-circle distance", note: "Illustrative only; no airline, schedule, nonstop service, or availability is verified." }, note: "Geographic preview only", rankingEligible: { cheapest: true, fastest: true } }],
   }) }));
   await page.goto("/");
-  await page.getByRole("button", { name: "Choose starting point" }).click();
+  await page.getByRole("button", { name: /Choose starting point/ }).click();
   const originSearch = page.getByRole("combobox", { name: "Starting point place search" });
   await originSearch.fill("Eiffel Tower");
   await expect(page.getByRole("option")).toContainText(/Eiffel Tower.*Champ de Mars, Paris, France/);
@@ -258,7 +277,7 @@ test("Davao to Tokyo shows both airline identities, codes, estimates, and tied E
     options: [airline("philippine_airlines", 12_300, 19_600), airline("cebu_pacific", 18_500, 24_000)], warnings: [],
   } }));
   await page.goto("/");
-  await page.getByRole("button", { name: "Choose starting point" }).click();
+  await page.getByRole("button", { name: /Choose starting point/ }).click();
   await page.getByRole("combobox", { name: "Starting point place search" }).fill("Davao City Hall");
   await page.getByRole("option").click();
   await page.getByRole("button", { name: "Choose destination" }).click();
@@ -305,7 +324,7 @@ test("an unresolved airport pair shows one recoverable message and keeps selecte
     airports: null, airRoute: null, options: [], warnings: ["A suitable scheduled-service airport could not be resolved near both selected places."],
   }) }));
   await page.goto("/");
-  await page.getByRole("button", { name: "Choose starting point" }).click();
+  await page.getByRole("button", { name: /Choose starting point/ }).click();
   const from = page.getByRole("combobox", { name: "Starting point place search" });
   await from.fill("Remote Antarctic Field Site");
   await expect(page.getByRole("option")).toHaveCount(1);
