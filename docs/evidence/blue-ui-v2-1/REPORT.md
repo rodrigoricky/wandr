@@ -33,7 +33,7 @@ Updated 2026-11-09. This report records the ordered implementation, verification
 ## Automated verification
 
 - `npm run check` passed: strict TypeScript, ESLint, 15 shared tests, 36 API tests, 4 web unit tests, and the static local build.
-- `npm run test:e2e` passed **19/19** in 2.2 minutes. This includes the required responsive UI matrix, map pixel/resource checks, fallback and recovery, WebGL restoration, route flows, long/short endpoint bounds, logo asset, slow cold load, reduced motion, warm update/no replay, and dual-provider failure clearing.
+- `npm run test:e2e` passed **19/19** in 2.7 minutes on the final pushed tree. This includes the required responsive UI matrix, map pixel/resource checks, fallback and recovery, WebGL restoration, route flows, long/short endpoint bounds, logo asset, slow cold load, reduced motion, warm update/no replay, and dual-provider failure clearing.
 - `npm audit --audit-level=moderate` passed with `found 0 vulnerabilities`.
 - `npm run deploy:dry-run -w @wandr/api` passed for the production Worker (676.52 KiB upload preview, 3 ms startup).
 - `NEXT_PUBLIC_API_BASE_URL=https://api.wandr.ricky.network npm run build:web` passed with static `/` and `/_not-found` output.
